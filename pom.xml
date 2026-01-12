@@ -1,0 +1,119 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.backend</groupId>
+  <artifactId>pharmacy-app</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+  <name>pharmacy-app</name>
+  <description>Pharmacy microservices monorepo (user + admin)</description>
+
+  <properties>
+    <!-- Set to JDK 17 to match current build environment; bump to 21 when JDK 21 is installed. -->
+    <java.version>17</java.version>
+    <spring.boot.version>3.2.2</spring.boot.version>
+    <spring.cloud.version>2023.0.0</spring.cloud.version>
+    <spring.kafka.version>3.1.0</spring.kafka.version>
+    <flyway.version>10.10.0</flyway.version>
+    <lombok.version>1.18.30</lombok.version>
+    <maven.compiler.source>${java.version}</maven.compiler.source>
+    <maven.compiler.target>${java.version}</maven.compiler.target>
+  </properties>
+
+  <modules>
+    <!-- common libs -->
+    <module>common/common-model</module>
+    <module>common/common-security</module>
+    <module>common/common-messaging</module>
+
+    <!-- gateway -->
+    <module>gateway</module>
+
+    <!-- user-side services -->
+    <module>user-server/identity-service</module>
+    <module>user-server/user-service</module>
+    <module>user-server/catalog-service</module>
+    <module>user-server/inventory-service</module>
+    <module>user-server/order-service</module>
+    <module>user-server/payment-service</module>
+    <module>user-server/appointment-service</module>
+    <module>user-server/review-service</module>
+    <module>user-server/notification-service</module>
+    <module>user-server/media-service</module>
+
+    <!-- admin-side services -->
+    <module>admin-server/admin-bff-service</module>
+    <module>admin-server/cms-service</module>
+    <module>admin-server/reporting-service</module>
+    <module>admin-server/audit-service</module>
+    <module>admin-server/settings-service</module>
+  </modules>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Spring Boot BOM -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring.boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- Spring Cloud BOM -->
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring.cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- Kafka (pin nếu cần ngoài BOM) -->
+      <dependency>
+        <groupId>org.springframework.kafka</groupId>
+        <artifactId>spring-kafka</artifactId>
+        <version>${spring.kafka.version}</version>
+      </dependency>
+
+      <!-- Flyway -->
+      <dependency>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-core</artifactId>
+        <version>${flyway.version}</version>
+      </dependency>
+
+      <!-- Lombok -->
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-maven-plugin</artifactId>
+          <version>${spring.boot.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <release>${java.version}</release>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

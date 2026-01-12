@@ -1,0 +1,4 @@
+com\backend\common\messaging\EventTypes.class
+com\backend\common\messaging\KafkaConfig.class
+com\backend\common\messaging\KafkaHeadersEx.class
+com\backend\common\messaging\TopicNames.class

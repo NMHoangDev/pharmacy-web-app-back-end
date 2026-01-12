@@ -1,0 +1,29 @@
+# Build outputs
+**/target/
+**/build/
+
+# IDE/editor
+.idea/
+**/*.iml
+.project
+.classpath
+.settings/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Env/config
+.env
+.env.*
+
+# Node (if accidentally added)
+node_modules/
+dist/

@@ -1,0 +1,3 @@
+com\backend\common\security\JwtClaims.class
+com\backend\common\security\UserPrincipal.class
+com\backend\common\security\Roles.class

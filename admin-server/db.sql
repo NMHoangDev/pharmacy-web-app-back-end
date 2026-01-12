@@ -1,0 +1,93 @@
+-- CMS service
+CREATE DATABASE IF NOT EXISTS pharmacy_cms;
+USE pharmacy_cms;
+
+CREATE TABLE IF NOT EXISTS cms_banner (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  title VARCHAR(255) NOT NULL,
+  image_url VARCHAR(2048),
+  target_url VARCHAR(2048),
+  active_from DATETIME NULL,
+  active_to DATETIME NULL,
+  priority INT DEFAULT 0,
+  enabled TINYINT(1) DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS cms_article (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
+  body TEXT NOT NULL,
+  author VARCHAR(255),
+  published_at DATETIME NULL,
+  featured TINYINT(1) DEFAULT 0,
+  enabled TINYINT(1) DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS cms_page (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
+  content TEXT NOT NULL,
+  published TINYINT(1) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB;
+
+-- Reporting service
+CREATE DATABASE IF NOT EXISTS pharmacy_reporting;
+USE pharmacy_reporting;
+
+CREATE TABLE IF NOT EXISTS metric_counter (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  category VARCHAR(255) NOT NULL,
+  metricKey VARCHAR(255) NOT NULL,
+  count BIGINT DEFAULT 0,
+  last_event_at DATETIME NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY idx_metric_category_key (category, metricKey)
+) ENGINE=InnoDB;
+
+-- Audit service
+CREATE DATABASE IF NOT EXISTS pharmacy_audit;
+USE pharmacy_audit;
+
+CREATE TABLE IF NOT EXISTS audit_record (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  actor VARCHAR(255) NOT NULL,
+  action VARCHAR(255) NOT NULL,
+  resource VARCHAR(255) NOT NULL,
+  metadata VARCHAR(2048),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_actor (actor),
+  KEY idx_action (action),
+  KEY idx_resource (resource),
+  KEY idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- Settings service
+CREATE DATABASE IF NOT EXISTS pharmacy_settings;
+USE pharmacy_settings;
+
+CREATE TABLE IF NOT EXISTS app_setting (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  scope VARCHAR(255) NOT NULL,
+  settingKey VARCHAR(255) NOT NULL,
+  value VARCHAR(2048) NOT NULL,
+  description VARCHAR(1024),
+  secure TINYINT(1) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY idx_scope_key (scope, settingKey)
+) ENGINE=InnoDB;
