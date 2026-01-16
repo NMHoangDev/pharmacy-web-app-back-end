@@ -1,5 +1,5 @@
 server:
-  port: 8103
+  port: ${SERVER_PORT:7013}
 spring:
   application:
     name: audit-service

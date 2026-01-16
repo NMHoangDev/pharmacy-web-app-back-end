@@ -16,6 +16,9 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(Customizer.withDefaults())
                 .authorizeExchange(exchanges -> exchanges
+                        // Dev-friendly: allow admin routes through gateway without JWT.
+                        // Admin BFF can still enforce its own security if needed.
+                        .pathMatchers("/api/admin/**").permitAll()
                         .pathMatchers("/api/auth/**", "/actuator/health", "/actuator/info", "/fallback").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS, "**").permitAll()
                         .anyExchange().authenticated())

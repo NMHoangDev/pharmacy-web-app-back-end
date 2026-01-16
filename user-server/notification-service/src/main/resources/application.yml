@@ -28,7 +28,7 @@ spring:
           starttls:
             enable: false
 server:
-  port: 8090
+  port: ${SERVER_PORT:7022}
 management:
   endpoints:
     web:

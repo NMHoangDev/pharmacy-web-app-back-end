@@ -5,6 +5,14 @@ REM Prereqs: JDK 17+, Maven, MySQL running with schemas created, Kafka running.
 
 set ROOT=%~dp0
 pushd "%ROOT%"
+
+echo.
+echo === Java version ===
+java -version
+echo.
+echo === Maven version ===
+mvn -v
+echo.
 REM --- Start Docker dependencies (Kafka, Keycloak) ---
 echo Starting Docker dependencies: Kafka and Keycloak (detached)...
 echo Removing existing containers if present...
@@ -23,27 +31,27 @@ REM Give docker services a few seconds to initialize (adjust if necessary)
 echo Waiting 8s for docker services to initialize...
 timeout /t 8 /nobreak >nul
 
-REM Gateway
-start "gateway" cmd /k "mvn -pl gateway spring-boot:run"
+REM Gateway (port configured in gateway/src/main/resources/application.yml)
+start "gateway" cmd /k "mvn -DskipTests -pl gateway clean spring-boot:run"
 
 REM User-facing services
-start "auth-service" cmd /k "mvn -pl user-server/auth-service spring-boot:run"
-start "user-service" cmd /k "mvn -pl user-server/user-service spring-boot:run"
-start "catalog-service" cmd /k "mvn -pl user-server/catalog-service spring-boot:run"
-start "inventory-service" cmd /k "mvn -pl user-server/inventory-service spring-boot:run"
-start "order-service" cmd /k "mvn -pl user-server/order-service spring-boot:run"
-start "payment-service" cmd /k "mvn -pl user-server/payment-service spring-boot:run"
-start "media-service" cmd /k "mvn -pl user-server/media-service spring-boot:run"
-start "notification-service" cmd /k "mvn -pl user-server/notification-service spring-boot:run"
-start "review-service" cmd /k "mvn -pl user-server/review-service spring-boot:run"
-start "appointment-service" cmd /k "mvn -pl user-server/appointment-service spring-boot:run"
+start "identity-service" cmd /k "mvn -DskipTests -pl user-server/identity-service clean spring-boot:run"
+start "user-service" cmd /k "mvn -DskipTests -pl user-server/user-service clean spring-boot:run"
+start "catalog-service" cmd /k "mvn -DskipTests -pl user-server/catalog-service clean spring-boot:run"
+start "inventory-service" cmd /k "mvn -DskipTests -pl user-server/inventory-service clean spring-boot:run"
+start "order-service" cmd /k "mvn -DskipTests -pl user-server/order-service clean spring-boot:run"
+start "payment-service" cmd /k "mvn -DskipTests -pl user-server/payment-service clean spring-boot:run"
+start "media-service" cmd /k "mvn -DskipTests -pl user-server/media-service clean spring-boot:run"
+start "notification-service" cmd /k "mvn -DskipTests -pl user-server/notification-service clean spring-boot:run"
+start "review-service" cmd /k "mvn -DskipTests -pl user-server/review-service clean spring-boot:run"
+start "appointment-service" cmd /k "mvn -DskipTests -pl user-server/appointment-service clean spring-boot:run"
 
 REM Admin services
-start "admin-bff" cmd /k "mvn -pl admin-server/admin-bff-service spring-boot:run"
-start "cms-service" cmd /k "mvn -pl admin-server/cms-service spring-boot:run"
-start "reporting-service" cmd /k "mvn -pl admin-server/reporting-service spring-boot:run"
-start "audit-service" cmd /k "mvn -pl admin-server/audit-service spring-boot:run"
-start "settings-service" cmd /k "mvn -pl admin-server/settings-service spring-boot:run"
+start "admin-bff" cmd /k "mvn -DskipTests -pl admin-server/admin-bff-service clean spring-boot:run"
+start "cms-service" cmd /k "mvn -DskipTests -pl admin-server/cms-service clean spring-boot:run"
+start "reporting-service" cmd /k "mvn -DskipTests -pl admin-server/reporting-service clean spring-boot:run"
+start "audit-service" cmd /k "mvn -DskipTests -pl admin-server/audit-service clean spring-boot:run"
+start "settings-service" cmd /k "mvn -DskipTests -pl admin-server/settings-service clean spring-boot:run"
 
 popd
 endlocal

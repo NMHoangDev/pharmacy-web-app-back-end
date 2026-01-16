@@ -1,0 +1,26 @@
+spring:
+  config:
+    import: "optional:file:.env[.properties]"
+  application:
+    name: identity-service
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:user_db}?useSSL=false&serverTimezone=UTC
+    username: ${DB_USER:root}
+    password: ${DB_PASS:160525}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+server:
+  port: ${SERVER_PORT:7015}
+  error:
+    include-message: always
+    include-binding-errors: always
+identity:
+  jwt:
+    # Default dev secret is 64 chars. Override via IDENTITY_JWT_SECRET in .env or environment.
+    secret: ${IDENTITY_JWT_SECRET:pR3F8z!kuQ9wS6vB1nX4cT7mY0aL2eH5rJ8kN1bV4pZ6sQ9uE3tW5yR7uI0oL2}
+    expires-minutes: ${IDENTITY_JWT_EXPIRES:120}
+    issuer: ${IDENTITY_JWT_ISSUER:http://localhost:${SERVER_PORT:7015}}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

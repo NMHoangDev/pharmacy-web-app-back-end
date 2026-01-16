@@ -1,0 +1,16 @@
+com\backend\user\repo\AddressRepository.class
+com\backend\user\model\User.class
+com\backend\user\repo\UserRepository.class
+com\backend\user\repo\HealthProfileRepository.class
+com\backend\user\UserServiceApplication.class
+com\backend\user\api\dto\ProfileRequest.class
+com\backend\user\api\dto\HealthProfileResponse.class
+com\backend\user\api\dto\AddressResponse.class
+com\backend\user\model\Address.class
+com\backend\user\api\UserApi.class
+com\backend\user\service\UserService.class
+com\backend\user\api\dto\ProfileResponse.class
+com\backend\user\api\dto\HealthProfileRequest.class
+com\backend\user\model\HealthProfile.class
+com\backend\user\api\dto\AddressRequest.class
+com\backend\user\api\dto\UserRequest.class

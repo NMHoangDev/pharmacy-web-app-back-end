@@ -1,5 +1,5 @@
 server:
-  port: 8101
+  port: ${SERVER_PORT:7011}
 spring:
   application:
     name: cms-service
