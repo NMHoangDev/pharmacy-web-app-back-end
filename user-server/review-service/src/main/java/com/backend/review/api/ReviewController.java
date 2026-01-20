@@ -2,6 +2,7 @@ package com.backend.review.api;
 
 import com.backend.review.api.dto.ReviewRequest;
 import com.backend.review.api.dto.ReviewResponse;
+import com.backend.review.api.dto.ReviewStatusRequest;
 import com.backend.review.service.ReviewService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -45,6 +46,14 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.listByProduct(productId, page, size));
     }
 
+    @GetMapping("/internal/product/{productId}")
+    public ResponseEntity<Page<ReviewResponse>> listByProductAdmin(@PathVariable UUID productId,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(reviewService.listByProductAdmin(productId, status, page, size));
+    }
+
     @GetMapping("/user/{userId}")
     public ResponseEntity<Page<ReviewResponse>> listByUser(@PathVariable UUID userId,
             @RequestParam(defaultValue = "0") int page,
@@ -55,6 +64,12 @@ public class ReviewController {
     @PutMapping("/{id}")
     public ResponseEntity<ReviewResponse> update(@PathVariable UUID id, @RequestBody @Valid ReviewRequest req) {
         return ResponseEntity.ok(reviewService.update(id, req));
+    }
+
+    @PutMapping("/internal/{id}/status")
+    public ResponseEntity<ReviewResponse> updateStatus(@PathVariable UUID id,
+            @RequestBody @Valid ReviewStatusRequest req) {
+        return ResponseEntity.ok(reviewService.updateStatus(id, req.status()));
     }
 
     @DeleteMapping("/{id}")

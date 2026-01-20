@@ -1,9 +1,11 @@
 com\backend\catalog\api\CatalogApi.class
+com\backend\catalog\CatalogServiceApplication.class
+com\backend\catalog\model\Category.class
+com\backend\catalog\api\GlobalExceptionHandler.class
 com\backend\catalog\api\dto\DrugRequest.class
 com\backend\catalog\service\CatalogService.class
 com\backend\catalog\repo\DrugRepository.class
-com\backend\catalog\CatalogServiceApplication.class
 com\backend\catalog\repo\CategoryRepository.class
 com\backend\catalog\model\Drug.class
 com\backend\catalog\api\dto\CategoryRequest.class
-com\backend\catalog\model\Category.class
+com\backend\catalog\api\GlobalExceptionHandler$ErrorResponse.class

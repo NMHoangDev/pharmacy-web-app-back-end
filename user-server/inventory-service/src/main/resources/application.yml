@@ -13,7 +13,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
 server:
-  port: 8085
+  port: ${SERVER_PORT:7018}
 management:
   endpoints:
     web:

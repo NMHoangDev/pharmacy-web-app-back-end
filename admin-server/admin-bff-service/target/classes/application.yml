@@ -2,9 +2,12 @@ spring:
   application:
     name: admin-bff-service
 server:
-  port: 8099
+  port: ${SERVER_PORT:7010}
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+services:
+  user:
+    url: http://localhost:7016

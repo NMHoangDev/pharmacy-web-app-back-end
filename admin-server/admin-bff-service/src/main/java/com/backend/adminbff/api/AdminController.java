@@ -1,5 +1,9 @@
 package com.backend.adminbff.api;
 
+import com.backend.adminbff.client.AdminUserClient;
+import com.backend.adminbff.dto.AdminUserProfile;
+import com.backend.adminbff.dto.UpsertAdminUserRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,6 +16,12 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+
+    private final AdminUserClient adminUserClient;
+
+    public AdminController(AdminUserClient adminUserClient) {
+        this.adminUserClient = adminUserClient;
+    }
 
     @GetMapping("/ping")
     public ResponseEntity<String> ping() {
@@ -58,18 +68,20 @@ public class AdminController {
     // Dashboard
     @GetMapping("/dashboard/summary")
     public ResponseEntity<Map<String, Object>> dashboardSummary() {
-        return ResponseEntity.ok(Map.of(
-                "ordersToday", 0,
-                "orders7d", 0,
-                "orders30d", 0,
-                "revenueToday", 0,
-                "revenue30d", 0,
-                "pendingOrders", 0,
-                "lowStock", 0,
-                "reviewsPending", 0,
-                "appointmentsToday", 0,
-                "newUsers", 0,
-                "topProducts", List.of()));
+        // Map.of supports up to 10 entries; Map.ofEntries keeps this response literal
+        // but valid.
+        return ResponseEntity.ok(Map.ofEntries(
+                Map.entry("ordersToday", 0),
+                Map.entry("orders7d", 0),
+                Map.entry("orders30d", 0),
+                Map.entry("revenueToday", 0),
+                Map.entry("revenue30d", 0),
+                Map.entry("pendingOrders", 0),
+                Map.entry("lowStock", 0),
+                Map.entry("reviewsPending", 0),
+                Map.entry("appointmentsToday", 0),
+                Map.entry("newUsers", 0),
+                Map.entry("topProducts", List.of())));
     }
 
     @GetMapping("/dashboard/timeseries")
@@ -165,15 +177,30 @@ public class AdminController {
 
     // Users
     @GetMapping("/users")
-    public ResponseEntity<Map<String, Object>> listUsers(@RequestParam(required = false) String q,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(Map.of("q", q, "page", page, "size", size, "items", List.of()));
+    public ResponseEntity<List<AdminUserProfile>> listUsers() {
+        return ResponseEntity.ok(adminUserClient.listUsers());
     }
 
     @GetMapping("/users/{id}")
-    public ResponseEntity<Map<String, Object>> getUser(@PathVariable UUID id) {
-        return ResponseEntity.ok(Map.of("id", id, "profile", Map.of(), "addresses", List.of()));
+    public ResponseEntity<AdminUserProfile> getUser(@PathVariable UUID id) {
+        return ResponseEntity.ok(adminUserClient.getUser(id));
+    }
+
+    @PostMapping("/users")
+    public ResponseEntity<AdminUserProfile> createUser(@RequestBody @Valid UpsertAdminUserRequest request) {
+        return ResponseEntity.ok(adminUserClient.createUser(request));
+    }
+
+    @PutMapping("/users/{id}")
+    public ResponseEntity<AdminUserProfile> updateUser(@PathVariable UUID id,
+            @RequestBody @Valid UpsertAdminUserRequest request) {
+        return ResponseEntity.ok(adminUserClient.updateUser(id, request));
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
+        adminUserClient.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/users/{id}/status")

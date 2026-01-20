@@ -12,7 +12,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 server:
-  port: 8086
+  port: ${SERVER_PORT:7020}
 management:
   endpoints:
     web:

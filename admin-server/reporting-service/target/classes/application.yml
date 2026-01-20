@@ -1,5 +1,5 @@
 server:
-  port: 8102
+  port: ${SERVER_PORT:7012}
 spring:
   application:
     name: reporting-service
