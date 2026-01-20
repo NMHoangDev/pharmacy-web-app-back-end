@@ -6,6 +6,7 @@ import com.backend.inventory.repo.InventoryItemRepository;
 import com.backend.inventory.repo.ReservationLineRepository;
 import com.backend.inventory.repo.ReservationRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -171,5 +172,20 @@ public class InventoryService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reservationId or orderId is required");
+    }
+
+    @Scheduled(fixedDelayString = "${inventory.reservation.expireDelayMs:60000}")
+    public void expireReservations() {
+        List<Reservation> expired = reservationRepo.findByStatusAndExpiresAtBefore(
+                ReservationStatus.ACTIVE, Instant.now());
+        if (expired.isEmpty()) {
+            return;
+        }
+        for (Reservation reservation : expired) {
+            List<ReservationLine> lines = lineRepo.findByIdReservationId(reservation.getId());
+            applyLines(lines, false);
+            reservation.setStatus(ReservationStatus.EXPIRED);
+        }
+        reservationRepo.saveAll(expired);
     }
 }
