@@ -15,6 +15,16 @@ mvn -v
 echo.
 REM --- Start Docker dependencies (Kafka, Keycloak) ---
 echo Starting Docker dependencies: Kafka and Keycloak (detached)...
+REM Build all modules once to speed up individual starts and avoid repeated downloads
+echo Running a root Maven build (skip tests) to ensure modules are available...
+mvn -DskipTests install
+if %ERRORLEVEL% neq 0 echo Warning: root mvn install failed - individual service starts may rebuild
+
+REM Verify Docker is available
+docker --version 1>nul 2>nul
+if %ERRORLEVEL% neq 0 (
+	echo Warning: Docker not found in PATH. Containers may fail to start.
+)
 echo Removing existing containers if present...
 docker rm -f kafka 2>nul || echo no kafka container
 docker rm -f keycloak 2>nul || echo no keycloak container
@@ -28,8 +38,8 @@ docker run --name keycloak -d -p 4040:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_A
 if %ERRORLEVEL% neq 0 echo Warning: failed to start keycloak container
 
 REM Give docker services a few seconds to initialize (adjust if necessary)
-echo Waiting 8s for docker services to initialize...
-timeout /t 8 /nobreak >nul
+echo Waiting 15s for docker services to initialize...
+timeout /t 15 /nobreak >nul
 
 REM Gateway (port configured in gateway/src/main/resources/application.yml)
 start "gateway" cmd /k "mvn -DskipTests -pl gateway clean spring-boot:run"

@@ -14,8 +14,7 @@ spring:
           uri: http://localhost:7021
           predicates:
             - Path=/api/media/**
-          filters:
-            - StripPrefix=1
+          # Do not strip prefix so media-service receives /api/media/**
         - id: notification-service
           uri: http://localhost:7022
           predicates:
@@ -26,8 +25,7 @@ spring:
           uri: http://localhost:7016
           predicates:
             - Path=/api/users/**
-          filters:
-            - StripPrefix=1
+          # Do not strip prefix for user-service so it receives /api/users/**
         - id: order-service
           uri: http://localhost:7019
           predicates:
@@ -44,14 +42,12 @@ spring:
           uri: http://localhost:7023
           predicates:
             - Path=/api/reviews/**
-          filters:
-            - StripPrefix=1
+          # Do not strip prefix so review-service receives /api/reviews/**
         - id: inventory-service
           uri: http://localhost:7018
           predicates:
             - Path=/api/inventory/**
-          filters:
-            - StripPrefix=1
+          # Do not strip prefix so inventory-service receives /api/inventory/**
         - id: payment-service
           uri: http://localhost:7020
           predicates:
@@ -62,8 +58,7 @@ spring:
           uri: http://localhost:7017
           predicates:
             - Path=/api/catalog/**
-          filters:
-            - StripPrefix=1
+          # Do not strip prefix so services receive full path (/api/catalog/**)
         - id: admin-bff
           uri: http://localhost:7010
           predicates:
@@ -138,6 +133,7 @@ server:
   error:
     include-message: always
     include-binding-errors: always
+    include-stacktrace: always
 
 management:
   endpoints:
@@ -151,8 +147,14 @@ management:
 
 logging:
   level:
-    org.springframework.cloud.gateway: INFO
-    org.springframework.security: INFO
-    reactor.netty.http.client: WARN
+    org:
+      springframework:
+        cloud:
+          gateway: INFO
+        security: INFO
+    reactor:
+      netty:
+        http:
+          client: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{X-Correlation-Id}] %logger - %msg%n"

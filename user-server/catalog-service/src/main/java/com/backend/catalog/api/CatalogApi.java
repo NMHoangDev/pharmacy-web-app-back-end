@@ -37,8 +37,8 @@ public class CatalogApi {
     }
 
     @GetMapping("/public/products")
-    public ResponseEntity<Page<Drug>> publicProducts(@RequestParam(required = false) String q,
-            @RequestParam(required = false) UUID categoryId,
+    public ResponseEntity<Page<Drug>> publicProducts(@RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "categoryId", required = false) UUID categoryId,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
         return ResponseEntity.ok(catalogService.searchPublicProducts(q, categoryId, pageable));
     }
@@ -59,13 +59,19 @@ public class CatalogApi {
         return ResponseEntity.ok(catalogService.listCategories());
     }
 
+    @GetMapping("/internal/categories/{id}")
+    public ResponseEntity<Category> getCategory(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok(catalogService.getCategory(id));
+    }
+
     @PutMapping("/internal/categories/{id}")
-    public ResponseEntity<Category> updateCategory(@PathVariable UUID id, @RequestBody @Valid CategoryRequest req) {
+    public ResponseEntity<Category> updateCategory(@PathVariable("id") UUID id,
+            @RequestBody @Valid CategoryRequest req) {
         return ResponseEntity.ok(catalogService.updateCategory(id, req));
     }
 
     @DeleteMapping("/internal/categories/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable UUID id) {
+    public ResponseEntity<Void> deleteCategory(@PathVariable("id") UUID id) {
         catalogService.deleteCategory(id);
         return ResponseEntity.noContent().build();
     }
@@ -75,13 +81,26 @@ public class CatalogApi {
         return ResponseEntity.ok(catalogService.createDrug(req));
     }
 
+    @GetMapping("/internal/products")
+    public ResponseEntity<Page<Drug>> listProducts(@RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "categoryId", required = false) UUID categoryId,
+            @RequestParam(name = "status", required = false) String status,
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
+        return ResponseEntity.ok(catalogService.searchProducts(q, categoryId, status, pageable));
+    }
+
+    @GetMapping("/internal/products/{id}")
+    public ResponseEntity<Drug> getProduct(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok(catalogService.getDrug(id));
+    }
+
     @PutMapping("/internal/products/{id}")
-    public ResponseEntity<Drug> updateDrug(@PathVariable UUID id, @RequestBody @Valid DrugRequest req) {
+    public ResponseEntity<Drug> updateDrug(@PathVariable("id") UUID id, @RequestBody @Valid DrugRequest req) {
         return ResponseEntity.ok(catalogService.updateDrug(id, req));
     }
 
     @DeleteMapping("/internal/products/{id}")
-    public ResponseEntity<Void> deleteDrug(@PathVariable UUID id) {
+    public ResponseEntity<Void> deleteDrug(@PathVariable("id") UUID id) {
         catalogService.deleteDrug(id);
         return ResponseEntity.noContent().build();
     }

@@ -1,6 +1,8 @@
 package com.backend.catalog.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -9,6 +11,8 @@ import java.util.UUID;
 @Table(name = "drugs")
 public class Drug {
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(columnDefinition = "char(36)")
     private UUID id;
 
     @Column(nullable = false, unique = true)
@@ -20,7 +24,8 @@ public class Drug {
     @Column(nullable = false, unique = true)
     private String slug;
 
-    @Column(name = "category_id")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "category_id", columnDefinition = "char(36)")
     private UUID categoryId;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -35,10 +40,10 @@ public class Drug {
     @Column(columnDefinition = "text")
     private String description;
 
-    @Column(name = "image_url")
+    @Column(name = "image_url", columnDefinition = "mediumtext")
     private String imageUrl;
 
-    @Column(columnDefinition = "jsonb")
+    @Column(columnDefinition = "json")
     private String attributes;
 
     @Column(name = "created_at")

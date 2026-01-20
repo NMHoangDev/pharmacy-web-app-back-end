@@ -7,6 +7,11 @@ spring:
       max-request-size: 10MB
 server:
   port: ${SERVER_PORT:7021}
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 management:
   endpoints:
     web:
@@ -20,3 +25,8 @@ s3:
   bucket-drugs: drug-media
   bucket-banners: banner-media
   presign-minutes: 30
+
+media:
+  local-path: uploads
+  base-url: http://localhost:8087
+  local-fallback: true

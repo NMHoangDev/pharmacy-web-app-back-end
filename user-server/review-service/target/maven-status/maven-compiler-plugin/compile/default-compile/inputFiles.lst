@@ -1,5 +1,6 @@
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\review-service\src\main\java\com\backend\review\api\dto\ReviewRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\review-service\src\main\java\com\backend\review\api\dto\ReviewResponse.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\review-service\src\main\java\com\backend\review\api\dto\ReviewStatusRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\review-service\src\main\java\com\backend\review\api\ReviewController.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\review-service\src\main\java\com\backend\review\model\Review.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\review-service\src\main\java\com\backend\review\model\ReviewStatus.java

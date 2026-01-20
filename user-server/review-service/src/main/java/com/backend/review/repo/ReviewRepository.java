@@ -11,5 +11,7 @@ import java.util.UUID;
 public interface ReviewRepository extends JpaRepository<Review, UUID> {
     Page<Review> findByProductIdAndStatus(UUID productId, ReviewStatus status, Pageable pageable);
 
+    Page<Review> findByProductId(UUID productId, Pageable pageable);
+
     Page<Review> findByUserId(UUID userId, Pageable pageable);
 }

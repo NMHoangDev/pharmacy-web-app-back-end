@@ -4,6 +4,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,6 +13,8 @@ import java.util.UUID;
 @Table(name = "categories")
 public class Category {
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(columnDefinition = "char(36)")
     private UUID id;
 
     @Column(nullable = false, length = 255)
@@ -18,6 +22,10 @@ public class Category {
 
     @Column(nullable = false, length = 255, unique = true)
     private String slug;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "parent_id", columnDefinition = "char(36)")
+    private UUID parentId;
 
     @Column(columnDefinition = "text")
     private String description;
@@ -53,6 +61,14 @@ public class Category {
 
     public void setSlug(String slug) {
         this.slug = slug;
+    }
+
+    public UUID getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(UUID parentId) {
+        this.parentId = parentId;
     }
 
     public String getDescription() {

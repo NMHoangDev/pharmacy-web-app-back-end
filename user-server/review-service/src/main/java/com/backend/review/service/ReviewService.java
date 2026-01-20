@@ -55,6 +55,17 @@ public class ReviewService {
                 .map(this::toResponse);
     }
 
+    public Page<ReviewResponse> listByProductAdmin(UUID productId, String status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        if (status == null || status.isBlank()) {
+            return reviewRepository.findByProductId(productId, pageable).map(this::toResponse);
+        }
+
+        ReviewStatus parsedStatus = ReviewStatus.valueOf(status.trim().toUpperCase());
+        return reviewRepository.findByProductIdAndStatus(productId, parsedStatus, pageable)
+                .map(this::toResponse);
+    }
+
     public Page<ReviewResponse> listByUser(UUID userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return reviewRepository.findByUserId(userId, pageable).map(this::toResponse);
@@ -66,6 +77,16 @@ public class ReviewService {
         r.setRating(req.rating());
         r.setTitle(req.title());
         r.setContent(req.content());
+        r.setUpdatedAt(Instant.now());
+        reviewRepository.save(r);
+        return toResponse(r);
+    }
+
+    public ReviewResponse updateStatus(UUID id, String status) {
+        Review r = reviewRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review not found"));
+        ReviewStatus parsedStatus = ReviewStatus.valueOf(status.trim().toUpperCase());
+        r.setStatus(parsedStatus);
         r.setUpdatedAt(Instant.now());
         reviewRepository.save(r);
         return toResponse(r);
