@@ -55,6 +55,7 @@ start "media-service" cmd /k "cd /d "%ROOT%user-server\media-service" && mvn -Ds
 start "notification-service" cmd /k "cd /d "%ROOT%user-server\notification-service" && mvn -DskipTests clean spring-boot:run"
 start "review-service" cmd /k "cd /d "%ROOT%user-server\review-service" && mvn -DskipTests clean spring-boot:run"
 start "appointment-service" cmd /k "cd /d "%ROOT%user-server\appointment-service" && mvn -DskipTests clean spring-boot:run"
+start "pharmacist-service" cmd /k "cd /d "%ROOT%user-server\pharmacist-service" && mvn -DskipTests clean spring-boot:run"
 
 REM Admin services
 start "admin-bff" cmd /k "cd /d "%ROOT%admin-server\admin-bff-service" && mvn -DskipTests clean spring-boot:run"

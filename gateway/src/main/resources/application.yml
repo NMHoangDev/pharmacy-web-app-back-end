@@ -59,6 +59,15 @@ spring:
           predicates:
             - Path=/api/catalog/**
           # Do not strip prefix so services receive full path (/api/catalog/**)
+        - id: pharmacist-service
+          uri: http://localhost:7025
+          predicates:
+            - Path=/api/pharmacists/**
+        - id: admin-pharmacist-service
+          uri: http://localhost:7025
+          predicates:
+            - Path=/api/admin/pharmacists/**
+          order: -1
         - id: admin-bff
           uri: http://localhost:7010
           predicates:

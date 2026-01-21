@@ -19,6 +19,8 @@ public class SecurityConfig {
                         // Dev-friendly: allow admin routes through gateway without JWT.
                         // Admin BFF can still enforce its own security if needed.
                         .pathMatchers("/api/admin/**").permitAll()
+                        // Public pharmacist listing/selection should be accessible without JWT
+                        .pathMatchers("/api/pharmacists/**").permitAll()
                         // Allow public catalog endpoints to be called without JWT
                         .pathMatchers("/api/catalog/public/**").permitAll()
                         // Dev-friendly: allow some internal admin endpoints through gateway without JWT
