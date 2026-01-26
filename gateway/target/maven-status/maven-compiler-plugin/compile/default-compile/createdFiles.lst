@@ -1,5 +1,7 @@
-com\backend\gateway\GatewayApplication.class
 com\backend\gateway\api\FallbackController.class
 com\backend\gateway\config\SecurityConfig.class
 com\backend\gateway\filter\RequestCorrelationFilter.class
+com\backend\gateway\GatewayRouteLogger.class
 com\backend\gateway\filter\AccessLogFilter.class
+com\backend\gateway\GatewayApplication.class
+com\backend\gateway\filter\RouteLoggingFilter.class

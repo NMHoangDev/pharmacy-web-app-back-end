@@ -1,0 +1,9 @@
+com\backend\review\service\ReviewService.class
+com\backend\review\ReviewServiceApplication.class
+com\backend\review\api\dto\ReviewResponse.class
+com\backend\review\api\ReviewController.class
+com\backend\review\repo\ReviewRepository.class
+com\backend\review\api\dto\ReviewStatusRequest.class
+com\backend\review\model\ReviewStatus.class
+com\backend\review\api\dto\ReviewRequest.class
+com\backend\review\model\Review.class

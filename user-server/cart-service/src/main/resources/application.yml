@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: cart-service
+server:
+  port: ${SERVER_PORT:7026}
+order:
+  service:
+    base-url: ${ORDER_SERVICE_BASE_URL:http://127.0.0.1:7019}
+inventory:
+  service:
+    base-url: ${INVENTORY_SERVICE_BASE_URL:http://127.0.0.1:7018}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

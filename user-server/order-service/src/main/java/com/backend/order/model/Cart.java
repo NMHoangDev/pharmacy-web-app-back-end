@@ -8,11 +8,15 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 @Entity
 @Table(name = "carts")
 public class Cart {
     @Id
-    @Column(name = "user_id", columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "user_id", length = 36)
     private UUID userId;
 
     @Column(name = "updated_at")

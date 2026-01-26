@@ -7,6 +7,8 @@ import com.backend.user.api.dto.HealthProfileResponse;
 import com.backend.user.api.dto.ProfileRequest;
 import com.backend.user.api.dto.ProfileResponse;
 import com.backend.user.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class UserApi {
 
     private final UserService userService;
+    private static final Logger log = LoggerFactory.getLogger(UserApi.class);
 
     public UserApi(UserService userService) {
         this.userService = userService;
@@ -42,12 +45,37 @@ public class UserApi {
 
     @GetMapping("/{id}")
     public ResponseEntity<ProfileResponse> get(@PathVariable UUID id) {
-        return ResponseEntity.ok(userService.get(id));
+        try {
+            ProfileResponse profile = userService.get(id);
+            return ResponseEntity.ok(profile);
+        } catch (org.springframework.web.server.ResponseStatusException rse) {
+            // If user not found, return a minimal profile instead of 404 so downstream
+            // flows (change-password, order history)
+            // can proceed without failing when profile is missing.
+            log.warn("UserApi.get not found id={}; returning minimal profile to avoid breaking consumers", id);
+            if (rse.getStatusCode().value() == 404) {
+                return ResponseEntity.ok(new ProfileResponse(id, "", "", "", null));
+            }
+            return ResponseEntity.status(rse.getStatusCode()).body(null);
+        } catch (Exception ex) {
+            log.error("Unexpected error fetching user id={}: {}", id, ex.toString(), ex);
+            return ResponseEntity.status(500).body(null);
+        }
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ProfileResponse> update(@PathVariable UUID id, @RequestBody @Valid ProfileRequest req) {
-        return ResponseEntity.ok(userService.update(id, req));
+        log.info("Received PUT /api/users/{} payload={}", id, req);
+        try {
+            ProfileResponse resp = userService.update(id, req);
+            return ResponseEntity.ok(resp);
+        } catch (org.springframework.web.server.ResponseStatusException rse) {
+            log.warn("UserApi.update returns {} for id={}", rse.getStatusCode(), id);
+            return ResponseEntity.status(rse.getStatusCode()).body(null);
+        } catch (Exception ex) {
+            log.error("Error updating user id={}: {}", id, ex.toString(), ex);
+            return ResponseEntity.status(500).body(null);
+        }
     }
 
     @DeleteMapping("/{id}")

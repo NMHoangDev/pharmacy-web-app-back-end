@@ -1,6 +1,7 @@
 package com.backend.identity.api;
 
 import com.backend.identity.api.dto.AuthResponse;
+import com.backend.identity.api.dto.ChangePasswordRequest;
 import com.backend.identity.api.dto.LoginRequest;
 import com.backend.identity.api.dto.RegisterRequest;
 import com.backend.identity.service.AuthService;
@@ -35,5 +36,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(@RequestBody @Valid ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ResponseEntity.noContent().build();
     }
 }

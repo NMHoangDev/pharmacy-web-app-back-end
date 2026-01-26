@@ -14,11 +14,16 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
 server:
   port: ${SERVER_PORT:7019}
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: always
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-logging:
-  level:
-    org.hibernate.SQL: WARN
+  logging:
+    level:
+      org.springframework.web: DEBUG
+      org.springframework.web.servlet.DispatcherServlet: DEBUG

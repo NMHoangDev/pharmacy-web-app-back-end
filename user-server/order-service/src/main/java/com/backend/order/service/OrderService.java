@@ -118,4 +118,17 @@ public class OrderService {
         return new OrderResponse(order.getId(), order.getUserId(), order.getStatus().name(), order.getTotalAmount(),
                 resItems);
     }
+
+    public List<OrderResponse> listByUser(UUID userId) {
+        List<OrderEntity> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        return orders.stream().map(order -> {
+            List<OrderItem> items = orderItemRepository.findByIdOrderId(order.getId());
+            List<OrderResponseItem> resItems = items.stream()
+                    .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(), i.getUnitPrice(),
+                            i.getQuantity()))
+                    .collect(Collectors.toList());
+            return new OrderResponse(order.getId(), order.getUserId(), order.getStatus().name(),
+                    order.getTotalAmount(), resItems);
+        }).toList();
+    }
 }

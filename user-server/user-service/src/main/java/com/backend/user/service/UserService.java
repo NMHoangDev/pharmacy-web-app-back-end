@@ -13,27 +13,40 @@ import com.backend.user.repo.AddressRepository;
 import com.backend.user.repo.HealthProfileRepository;
 import com.backend.user.repo.UserRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 @Service
 @Transactional
 public class UserService {
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
     private final UserRepository userRepository;
     private final AddressRepository addressRepository;
     private final HealthProfileRepository healthRepository;
+    @PersistenceContext
+    private EntityManager em;
+    private final JdbcTemplate jdbc;
 
     public UserService(UserRepository userRepository,
             AddressRepository addressRepository,
-            HealthProfileRepository healthRepository) {
+            HealthProfileRepository healthRepository,
+            JdbcTemplate jdbc) {
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
         this.healthRepository = healthRepository;
+        this.jdbc = jdbc;
     }
 
     // Profile
@@ -46,7 +59,9 @@ public class UserService {
         u.setEmail(req.email());
         u.setPhone(req.phone());
         u.setFullName(req.fullName());
+        u.setAvatarBase64(req.avatarBase64());
         userRepository.save(u);
+        log.info("User created id={} email={}", u.getId(), u.getEmail());
         return toProfile(u);
     }
 
@@ -55,27 +70,105 @@ public class UserService {
     }
 
     public ProfileResponse get(UUID id) {
-        return toProfile(userRepository.findById(id).orElseThrow(() -> notFound()));
+        var found = userRepository.findById(id);
+        if (found.isPresent()) {
+            return toProfile(found.get());
+        }
+
+        // Diagnostic: check via native query to see if row exists and what the DB has
+        try {
+            log.warn("Diagnostic: EntityManager is null? {} | id class: {}", em == null,
+                    id == null ? "null" : id.getClass());
+            var q = em.createNativeQuery("select id from users where id = :id");
+            q.setParameter("id", id.toString());
+            var list = q.getResultList();
+            log.warn("Native query (param) result count for id={}: {}", id, list.size());
+            if (!list.isEmpty()) {
+                log.warn("Native query (param) first value for id={}: {}", id, list.get(0));
+            }
+
+            // Try inline SQL to avoid potential binding/type mismatches
+            var inline = em.createNativeQuery("select id from users where id = '" + id.toString() + "'")
+                    .getResultList();
+            log.warn("Native query (inline) result count for id={}: {}", id, inline.size());
+            if (!inline.isEmpty()) {
+                log.warn("Native query (inline) first value for id={}: {}", id, inline.get(0));
+            }
+
+        } catch (Exception ex) {
+            log.error("Native query failed for id={}: {}", id, ex.toString(), ex);
+        }
+
+        // Fallback: try direct JDBC query in case JPA conversion/mapping failed
+        try {
+            var row = jdbc.queryForMap("select id, email, phone, full_name, avatar_base64 from users where id = ?",
+                    id.toString());
+            log.warn("JDBC fallback found row for id={}: {}", id, row);
+            var u = new User();
+            u.setId(UUID.fromString((String) row.get("id")));
+            u.setEmail((String) row.get("email"));
+            u.setPhone((String) row.get("phone"));
+            u.setFullName((String) row.get("full_name"));
+            u.setAvatarBase64((String) row.get("avatar_base64"));
+            return toProfile(u);
+        } catch (EmptyResultDataAccessException er) {
+            // not found via JDBC either
+        }
+
+        return toProfile(userRepository.findById(id).orElseThrow(() -> notFound(id)));
     }
 
     public ProfileResponse update(UUID id, ProfileRequest req) {
-        User u = userRepository.findById(id).orElseThrow(() -> notFound());
-        u.setEmail(req.email());
-        u.setPhone(req.phone());
-        u.setFullName(req.fullName());
-        userRepository.save(u);
+        var existing = userRepository.findById(id);
+        User u;
+        if (existing.isPresent()) {
+            u = existing.get();
+            u.setEmail(req.email());
+            u.setPhone(req.phone());
+            u.setFullName(req.fullName());
+            u.setAvatarBase64(req.avatarBase64());
+            userRepository.save(u);
+            log.info("User updated id={} email={}", u.getId(), u.getEmail());
+        } else {
+            // Upsert behavior: create new user with provided id
+            u = new User();
+            u.setId(id);
+            u.setEmail(req.email());
+            u.setPhone(req.phone());
+            u.setFullName(req.fullName());
+            u.setAvatarBase64(req.avatarBase64());
+            try {
+                userRepository.save(u);
+                log.info("User created by upsert id={} email={}", u.getId(), u.getEmail());
+            } catch (DataIntegrityViolationException dive) {
+                // Likely unique constraint on email - try to return the existing user by email
+                log.warn("Upsert create failed due to data integrity for id={} email={}: {}", id, req.email(),
+                        dive.toString());
+                var existingByEmail = userRepository.findByEmail(req.email());
+                if (existingByEmail.isPresent()) {
+                    log.info("Returning existing user by email during upsert id={}", existingByEmail.get().getId());
+                    return toProfile(existingByEmail.get());
+                }
+                throw dive;
+            }
+        }
         return toProfile(u);
     }
 
     public void delete(UUID id) {
+        if (!userRepository.existsById(id)) {
+            throw notFound(id);
+        }
         userRepository.deleteById(id);
+        log.info("User deleted id={}", id);
     }
 
     private ProfileResponse toProfile(User u) {
-        return new ProfileResponse(u.getId(), u.getEmail(), u.getPhone(), u.getFullName());
+        return new ProfileResponse(u.getId(), u.getEmail(), u.getPhone(), u.getFullName(), u.getAvatarBase64());
     }
 
-    private ResponseStatusException notFound() {
+    private ResponseStatusException notFound(UUID id) {
+        log.warn("User not found id={}", id);
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
     }
 
@@ -136,7 +229,7 @@ public class UserService {
 
     private void ensureUser(UUID userId) {
         if (!userRepository.existsById(userId)) {
-            throw notFound();
+            throw notFound(userId);
         }
     }
 

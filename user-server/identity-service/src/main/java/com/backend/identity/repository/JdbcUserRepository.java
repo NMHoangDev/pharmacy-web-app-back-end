@@ -39,6 +39,13 @@ public class JdbcUserRepository implements UserRepository {
     }
 
     @Override
+    public Optional<UserAccount> findById(UUID id) {
+        var list = jdbc.query("SELECT id, email, phone, password_hash, full_name FROM users WHERE id = ?",
+                rowMapper(), id.toString());
+        return list.stream().findFirst();
+    }
+
+    @Override
     public boolean existsByEmail(String email) {
         Integer cnt = jdbc.queryForObject("SELECT COUNT(1) FROM users WHERE email = ?", Integer.class,
                 email.trim().toLowerCase());
@@ -57,6 +64,11 @@ public class JdbcUserRepository implements UserRepository {
         jdbc.update("INSERT INTO users (id, email, phone, password_hash, full_name) VALUES (?,?,?,?,?)",
                 account.id().toString(), account.email(), account.phone(), account.passwordHash(), account.fullName());
         return account;
+    }
+
+    @Override
+    public void updatePassword(UUID id, String passwordHash) {
+        jdbc.update("UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, id.toString());
     }
 
     private RowMapper<UserAccount> rowMapper() {

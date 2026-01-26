@@ -50,6 +50,7 @@ start "user-service" cmd /k "cd /d "%ROOT%user-server\user-service" && mvn -Dski
 start "catalog-service" cmd /k "cd /d "%ROOT%user-server\catalog-service" && mvn -DskipTests clean spring-boot:run"
 start "inventory-service" cmd /k "cd /d "%ROOT%user-server\inventory-service" && mvn -DskipTests clean spring-boot:run"
 start "order-service" cmd /k "cd /d "%ROOT%user-server\order-service" && mvn -DskipTests clean spring-boot:run"
+start "cart-service" cmd /k "cd /d "%ROOT%user-server\cart-service" && mvn -DskipTests clean spring-boot:run"
 start "payment-service" cmd /k "cd /d "%ROOT%user-server\payment-service" && mvn -DskipTests clean spring-boot:run"
 start "media-service" cmd /k "cd /d "%ROOT%user-server\media-service" && mvn -DskipTests clean spring-boot:run"
 start "notification-service" cmd /k "cd /d "%ROOT%user-server\notification-service" && mvn -DskipTests clean spring-boot:run"

@@ -4,6 +4,7 @@ com\backend\user\repo\UserRepository.class
 com\backend\user\repo\HealthProfileRepository.class
 com\backend\user\UserServiceApplication.class
 com\backend\user\api\dto\ProfileRequest.class
+com\backend\user\model\UUIDAttributeConverter.class
 com\backend\user\api\dto\HealthProfileResponse.class
 com\backend\user\api\dto\AddressResponse.class
 com\backend\user\model\Address.class

@@ -37,12 +37,14 @@
     <module>user-server/catalog-service</module>
     <module>user-server/inventory-service</module>
     <module>user-server/order-service</module>
+    <module>user-server/cart-service</module>
     <module>user-server/payment-service</module>
     <module>user-server/appointment-service</module>
     <module>user-server/pharmacist-service</module>
     <module>user-server/review-service</module>
     <module>user-server/notification-service</module>
     <module>user-server/media-service</module>
+     <module>user-server/consultation-service</module>
 
     <!-- admin-side services -->
     <module>admin-server/admin-bff-service</module>
@@ -52,6 +54,7 @@
     <module>admin-server/settings-service</module>
   </modules>
 
+     
   <dependencyManagement>
     <dependencies>
       <!-- Spring Boot BOM -->

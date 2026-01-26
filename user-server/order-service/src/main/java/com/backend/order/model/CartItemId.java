@@ -7,13 +7,18 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 @Embeddable
 public class CartItemId implements Serializable {
 
-    @Column(name = "cart_user_id", columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "cart_user_id", length = 36)
     private UUID cartUserId;
 
-    @Column(name = "product_id", columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "product_id", length = 36)
     private UUID productId;
 
     public CartItemId() {

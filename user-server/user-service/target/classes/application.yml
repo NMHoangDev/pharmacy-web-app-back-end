@@ -21,4 +21,6 @@ management:
         include: health,info
 logging:
   level:
-    org.hibernate.SQL: WARN
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.orm.jpa: DEBUG

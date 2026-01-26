@@ -18,4 +18,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             LocalDateTime end);
 
     Page<Appointment> findByStatus(AppointmentStatus status, Pageable pageable);
+
+    java.util.List<Appointment> findByPharmacistIdAndStartAtBetween(UUID pharmacistId, LocalDateTime from,
+            LocalDateTime to);
+
+    boolean existsByPharmacistIdAndStartAtAndStatusNot(UUID pharmacistId, LocalDateTime startAt,
+            AppointmentStatus statusToExclude);
 }
