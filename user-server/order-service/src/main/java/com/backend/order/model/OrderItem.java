@@ -1,9 +1,7 @@
 package com.backend.order.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.EmbeddedId;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "order_items")
@@ -11,6 +9,12 @@ public class OrderItem {
 
     @EmbeddedId
     private OrderItemId id;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("orderId")
+    @JoinColumn(name = "order_id")
+    private OrderEntity order;
 
     @Column(name = "product_name", nullable = false)
     private String productName;
@@ -37,6 +41,14 @@ public class OrderItem {
 
     public void setId(OrderItemId id) {
         this.id = id;
+    }
+
+    public OrderEntity getOrder() {
+        return order;
+    }
+
+    public void setOrder(OrderEntity order) {
+        this.order = order;
     }
 
     public String getProductName() {

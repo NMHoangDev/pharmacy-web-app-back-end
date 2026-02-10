@@ -1,6 +1,8 @@
 package com.backend.inventory.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -10,11 +12,17 @@ import java.util.UUID;
 public class Reservation {
 
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(columnDefinition = "char(36)")
     private UUID id;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "order_id", nullable = false, columnDefinition = "char(36)")
     private UUID orderId;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "branch_id", columnDefinition = "char(36)")
+    private UUID branchId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -29,9 +37,11 @@ public class Reservation {
     public Reservation() {
     }
 
-    public Reservation(UUID id, UUID orderId, ReservationStatus status, Instant expiresAt, Instant createdAt) {
+    public Reservation(UUID id, UUID orderId, UUID branchId, ReservationStatus status, Instant expiresAt,
+            Instant createdAt) {
         this.id = id;
         this.orderId = orderId;
+        this.branchId = branchId;
         this.status = status;
         this.expiresAt = expiresAt;
         this.createdAt = createdAt;
@@ -51,6 +61,14 @@ public class Reservation {
 
     public void setOrderId(UUID orderId) {
         this.orderId = orderId;
+    }
+
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
     }
 
     public ReservationStatus getStatus() {

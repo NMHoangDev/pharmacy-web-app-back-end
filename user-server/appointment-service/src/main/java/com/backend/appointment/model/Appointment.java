@@ -30,6 +30,10 @@ public class Appointment {
     @Column(name = "pharmacist_id", length = 36, nullable = false)
     private UUID pharmacistId;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "branch_id", length = 36)
+    private UUID branchId;
+
     @Column(name = "full_name", length = 255)
     private String fullName;
 
@@ -44,7 +48,7 @@ public class Appointment {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
-    private AppointmentStatus status = AppointmentStatus.PENDING;
+    private AppointmentStatus status = AppointmentStatus.REQUESTED;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -55,6 +59,19 @@ public class Appointment {
 
     @Column(name = "cancel_reason", columnDefinition = "TEXT")
     private String cancelReason;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "rescheduled_from_id", length = 36)
+    private UUID rescheduledFromId;
+
+    @Column(name = "reschedule_reason", columnDefinition = "TEXT")
+    private String rescheduleReason;
+
+    @Column(name = "refund_reason", columnDefinition = "TEXT")
+    private String refundReason;
+
+    @Column(name = "no_show_reason", columnDefinition = "TEXT")
+    private String noShowReason;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
@@ -100,6 +117,14 @@ public class Appointment {
 
     public void setPharmacistId(UUID pharmacistId) {
         this.pharmacistId = pharmacistId;
+    }
+
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
     }
 
     public LocalDateTime getStartAt() {
@@ -148,6 +173,38 @@ public class Appointment {
 
     public void setCancelReason(String cancelReason) {
         this.cancelReason = cancelReason;
+    }
+
+    public UUID getRescheduledFromId() {
+        return rescheduledFromId;
+    }
+
+    public void setRescheduledFromId(UUID rescheduledFromId) {
+        this.rescheduledFromId = rescheduledFromId;
+    }
+
+    public String getRescheduleReason() {
+        return rescheduleReason;
+    }
+
+    public void setRescheduleReason(String rescheduleReason) {
+        this.rescheduleReason = rescheduleReason;
+    }
+
+    public String getRefundReason() {
+        return refundReason;
+    }
+
+    public void setRefundReason(String refundReason) {
+        this.refundReason = refundReason;
+    }
+
+    public String getNoShowReason() {
+        return noShowReason;
+    }
+
+    public void setNoShowReason(String noShowReason) {
+        this.noShowReason = noShowReason;
     }
 
     public Instant getCreatedAt() {

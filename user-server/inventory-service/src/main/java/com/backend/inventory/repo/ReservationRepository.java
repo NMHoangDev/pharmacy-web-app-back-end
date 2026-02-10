@@ -12,5 +12,7 @@ import java.util.UUID;
 public interface ReservationRepository extends JpaRepository<Reservation, UUID> {
     Optional<Reservation> findByOrderId(UUID orderId);
 
+    Optional<Reservation> findByOrderIdAndBranchId(UUID orderId, UUID branchId);
+
     List<Reservation> findByStatusAndExpiresAtBefore(ReservationStatus status, Instant now);
 }

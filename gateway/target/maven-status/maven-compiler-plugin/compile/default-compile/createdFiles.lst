@@ -1,3 +1,4 @@
+com\backend\gateway\config\GatewayExceptionHandler.class
 com\backend\gateway\api\FallbackController.class
 com\backend\gateway\config\SecurityConfig.class
 com\backend\gateway\filter\RequestCorrelationFilter.class

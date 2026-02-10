@@ -6,6 +6,12 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: branch-service-public
+          uri: ${services.branch.uri:http://localhost:7030}
+          predicates:
+            - Path=/api/branches/**,/api/branches
+          # Public endpoints; still pass through JWT if present.
+
         - id: auth-service
           uri: ${services.auth.uri:http://localhost:${IDENTITY_SERVER_PORT:7070}}
           predicates:
@@ -37,12 +43,12 @@ spring:
         - id: order-service
           uri: http://localhost:7019
           predicates:
-            - Path=/api/orders/**, /api/order/**
+            - Path=/api/orders/**, /api/order/**, /api/checkout/**
           # Do not strip prefix so order-service receives /api/orders/** or /api/order/**
         - id: appointment-service
           uri: http://localhost:7024
           predicates:
-            - Path=/api/appointments/**, /api/appointments
+            - Path=/api/appointments/**, /api/appointments, /api/consultations/**, /ws/**
 
         - id: review-service
           uri: http://localhost:7023
@@ -58,54 +64,61 @@ spring:
           uri: http://localhost:7020
           predicates:
             - Path=/api/payments/**
-          filters:
-            - StripPrefix=1
+        - id: catalog-public
+          uri: http://localhost:7017
+          predicates:
+            - Path=/api/catalog/public/**
+          order: -1
         - id: catalog-service
           uri: http://localhost:7017
           predicates:
             - Path=/api/catalog/**
-          # Do not strip prefix so services receive full path (/api/catalog/**)
+          filters:
+            - TokenRelay
         - id: pharmacist-service
           uri: http://localhost:7025
           predicates:
             - Path=/api/pharmacists/**
+          filters:
+            - TokenRelay
         - id: admin-pharmacist-service
           uri: http://localhost:7025
           predicates:
             - Path=/api/admin/pharmacists/**
+          filters:
+            - TokenRelay
           order: -1
+        - id: admin-order-service
+          uri: http://localhost:7019
+          predicates:
+            - Path=/api/admin/orders/**
+          filters:
+            - TokenRelay
+          order: -1
+        - id: admin-appointment-service
+          uri: http://localhost:7024
+          predicates:
+            - Path=/api/admin/appointments/**
+          filters:
+            - TokenRelay
+          order: -1
+
+        - id: admin-branch-service
+          uri: ${services.branch.uri:http://localhost:7030}
+          predicates:
+            - Path=/api/admin/branches/**,/api/admin/branches
+          filters:
+            - TokenRelay
+          order: -2
         - id: admin-bff
           uri: http://localhost:7010
           predicates:
             - Path=/api/admin/**
+          filters:
+            - TokenRelay
           # Do not strip prefix for admin-bff so the service receives the full path
           # (admin-bff controller is mapped to /api/admin/*)
 
-        # Optional direct admin services (uncomment if bypassing BFF)
-        # - id: cms-service
-        #   uri: http://localhost:7011
-        #   predicates:
-        #     - Path=/api/admin/cms/**
-        #   filters:
-        #     - StripPrefix=2
-        # - id: reporting-service
-        #   uri: http://localhost:7012
-        #   predicates:
-        #     - Path=/api/admin/reporting/**
-        #   filters:
-        #     - StripPrefix=2
-        # - id: audit-service
-        #   uri: http://localhost:7013
-        #   predicates:
-        #     - Path=/api/admin/audit/**
-        #   filters:
-        #     - StripPrefix=2
-        # - id: settings-service
-        #   uri: http://localhost:7014
-        #   predicates:
-        #     - Path=/api/admin/settings/**
-        #   filters:
-        #     - StripPrefix=2
       globalcors:
         corsConfigurations:
           "[/**]":
@@ -131,8 +144,8 @@ spring:
             fallbackUri: forward:/fallback
 
       httpclient:
-        connect-timeout: 3000
-        response-timeout: 10s
+        connect-timeout: 5000
+        response-timeout: 30s
       forwarded:
         enabled: true
 
@@ -140,7 +153,10 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          secret-key: ${IDENTITY_JWT_SECRET:pR3F8z!kuQ9wS6vB1nX4cT7mY0aL2eH5rJ8kN1bV4pZ6sQ9uE3tW5yR7uI0oL2}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/pharmacy}
+    keycloak:
+      roles-source: realm
+      client-id: pharmacy-app
 
 server:
   port: 8087
@@ -165,12 +181,12 @@ logging:
       springframework:
         cloud:
           gateway: DEBUG
-        security: INFO
+        security: DEBUG
     reactor:
       netty:
         http:
           client: DEBUG
     # enable detailed gateway routing logs
-    org.springframework.cloud.gateway.filter: DEBUG
+    "[org.springframework.cloud.gateway.filter]": DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{X-Correlation-Id}] %logger - %msg%n"

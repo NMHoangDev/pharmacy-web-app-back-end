@@ -1,11 +1,16 @@
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\dto\UserRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\model\User.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\repo\PharmacistProfileRepository.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\config\LocalSecurityConfig.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\service\UserService.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\UserApi.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\dto\HealthProfileResponse.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\dto\AddressResponse.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\dto\ProfileRequest.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\model\PharmacistProfile.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\config\SecurityConfig.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\repo\AddressRepository.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\PharmacistController.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\model\Address.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\dto\HealthProfileRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\model\HealthProfile.java
@@ -14,4 +19,5 @@ D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\model\UUIDAttributeConverter.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\repo\UserRepository.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\repo\HealthProfileRepository.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\dto\PharmacistProfileRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\user-service\src\main\java\com\backend\user\api\dto\AddressRequest.java

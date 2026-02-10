@@ -1,9 +1,11 @@
 package com.backend.catalog.api;
 
+import com.backend.catalog.api.dto.BranchSettingRequest;
 import com.backend.catalog.api.dto.CategoryRequest;
+import com.backend.catalog.api.dto.DrugAdminDto;
+import com.backend.catalog.api.dto.DrugPublicDto;
 import com.backend.catalog.api.dto.DrugRequest;
 import com.backend.catalog.model.Category;
-import com.backend.catalog.model.Drug;
 import com.backend.catalog.service.CatalogService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -37,15 +39,17 @@ public class CatalogApi {
     }
 
     @GetMapping("/public/products")
-    public ResponseEntity<Page<Drug>> publicProducts(@RequestParam(name = "q", required = false) String q,
+    public ResponseEntity<Page<DrugPublicDto>> publicProducts(@RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "categoryId", required = false) UUID categoryId,
+            @RequestParam(name = "branchId", required = false) UUID branchId,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return ResponseEntity.ok(catalogService.searchPublicProducts(q, categoryId, pageable));
+        return ResponseEntity.ok(catalogService.searchPublicProducts(q, categoryId, branchId, pageable));
     }
 
     @GetMapping("/public/products/{idOrSlug}")
-    public ResponseEntity<Drug> publicProductDetail(@PathVariable String idOrSlug) {
-        return ResponseEntity.ok(catalogService.getPublicProduct(idOrSlug));
+    public ResponseEntity<DrugPublicDto> publicProductDetail(@PathVariable String idOrSlug,
+            @RequestParam(name = "branchId", required = false) UUID branchId) {
+        return ResponseEntity.ok(catalogService.getPublicProduct(idOrSlug, branchId));
     }
 
     // Internal CRUD (seed/admin minimal)
@@ -77,26 +81,42 @@ public class CatalogApi {
     }
 
     @PostMapping("/internal/products")
-    public ResponseEntity<Drug> createDrug(@RequestBody @Valid DrugRequest req) {
+    public ResponseEntity<DrugAdminDto> createDrug(@RequestBody @Valid DrugRequest req) {
         return ResponseEntity.ok(catalogService.createDrug(req));
     }
 
     @GetMapping("/internal/products")
-    public ResponseEntity<Page<Drug>> listProducts(@RequestParam(name = "q", required = false) String q,
+    public ResponseEntity<Page<DrugAdminDto>> listProducts(@RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "categoryId", required = false) UUID categoryId,
             @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "branchId", required = false) UUID branchId,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return ResponseEntity.ok(catalogService.searchProducts(q, categoryId, status, pageable));
+        return ResponseEntity.ok(catalogService.searchProducts(q, categoryId, status, branchId, pageable));
     }
 
     @GetMapping("/internal/products/{id}")
-    public ResponseEntity<Drug> getProduct(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(catalogService.getDrug(id));
+    public ResponseEntity<DrugAdminDto> getProduct(@PathVariable("id") UUID id,
+            @RequestParam(name = "branchId", required = false) UUID branchId) {
+        return ResponseEntity.ok(catalogService.getDrug(id, branchId));
     }
 
     @PutMapping("/internal/products/{id}")
-    public ResponseEntity<Drug> updateDrug(@PathVariable("id") UUID id, @RequestBody @Valid DrugRequest req) {
+    public ResponseEntity<DrugAdminDto> updateDrug(@PathVariable("id") UUID id,
+            @RequestBody @Valid DrugRequest req) {
         return ResponseEntity.ok(catalogService.updateDrug(id, req));
+    }
+
+    @PutMapping("/internal/products/{id}/branch-settings")
+    public ResponseEntity<DrugAdminDto> upsertBranchSetting(@PathVariable("id") UUID id,
+            @RequestBody @Valid BranchSettingRequest req) {
+        return ResponseEntity.ok(catalogService.upsertBranchSetting(id, req));
+    }
+
+    @DeleteMapping("/internal/products/{id}/branch-settings")
+    public ResponseEntity<Void> deleteBranchSetting(@PathVariable("id") UUID id,
+            @RequestParam(name = "branchId") UUID branchId) {
+        catalogService.deleteBranchSetting(id, branchId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/internal/products/{id}")

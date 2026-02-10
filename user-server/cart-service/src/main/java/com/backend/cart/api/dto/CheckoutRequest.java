@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record CheckoutRequest(
-        @NotNull UUID userId,
-        @NotEmpty @Valid List<CheckoutItem> items) {
+                @NotNull UUID userId,
+                @NotEmpty @Valid List<CheckoutItem> items,
+                UUID branchId) {
 }

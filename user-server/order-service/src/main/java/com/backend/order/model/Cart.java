@@ -22,6 +22,10 @@ public class Cart {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "branch_id", length = 36)
+    private UUID branchId;
+
     public Cart() {
     }
 
@@ -44,5 +48,13 @@ public class Cart {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
     }
 }

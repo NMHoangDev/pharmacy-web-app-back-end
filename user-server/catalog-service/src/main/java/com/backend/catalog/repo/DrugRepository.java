@@ -29,4 +29,49 @@ public interface DrugRepository extends JpaRepository<Drug, UUID> {
                         + "AND (:status IS NULL OR d.status = :status)")
         Page<Drug> searchAll(@Param("q") String q, @Param("categoryId") UUID categoryId, @Param("status") String status,
                         Pageable pageable);
+
+        @Query("SELECT d.id as id, d.sku as sku, d.name as name, d.slug as slug, d.categoryId as categoryId, "
+                        + "d.costPrice as costPrice, d.salePrice as baseSalePrice, d.status as globalStatus, d.prescriptionRequired as prescriptionRequired, "
+                        + "d.description as description, d.imageUrl as imageUrl, d.attributes as attributes, "
+                        + "s.priceOverride as priceOverride, s.status as branchStatus, s.note as note "
+                        + "FROM Drug d LEFT JOIN DrugBranchSetting s ON s.drugId = d.id AND s.branchId = :branchId "
+                        + "WHERE (:q IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%',:q,'%')) "
+                        + "OR LOWER(d.slug) LIKE LOWER(CONCAT('%',:q,'%')) "
+                        + "OR LOWER(d.sku) LIKE LOWER(CONCAT('%',:q,'%'))) "
+                        + "AND (:categoryId IS NULL OR d.categoryId = :categoryId) "
+                        + "AND d.status = 'ACTIVE' "
+                        + "AND (s.status IS NULL OR s.status = 'ACTIVE')")
+        Page<DrugWithBranchView> searchPublicByBranch(@Param("q") String q, @Param("categoryId") UUID categoryId,
+                        @Param("branchId") UUID branchId, Pageable pageable);
+
+        @Query("SELECT d.id as id, d.sku as sku, d.name as name, d.slug as slug, d.categoryId as categoryId, "
+                        + "d.costPrice as costPrice, d.salePrice as baseSalePrice, d.status as globalStatus, d.prescriptionRequired as prescriptionRequired, "
+                        + "d.description as description, d.imageUrl as imageUrl, d.attributes as attributes, "
+                        + "s.priceOverride as priceOverride, s.status as branchStatus, s.note as note "
+                        + "FROM Drug d LEFT JOIN DrugBranchSetting s ON s.drugId = d.id AND s.branchId = :branchId "
+                        + "WHERE (:q IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%',:q,'%')) "
+                        + "OR LOWER(d.slug) LIKE LOWER(CONCAT('%',:q,'%')) "
+                        + "OR LOWER(d.sku) LIKE LOWER(CONCAT('%',:q,'%'))) "
+                        + "AND (:categoryId IS NULL OR d.categoryId = :categoryId) "
+                        + "AND (:status IS NULL OR d.status = :status)")
+        Page<DrugWithBranchView> searchAdminByBranch(@Param("q") String q, @Param("categoryId") UUID categoryId,
+                        @Param("status") String status, @Param("branchId") UUID branchId, Pageable pageable);
+
+        @Query("SELECT d.id as id, d.sku as sku, d.name as name, d.slug as slug, d.categoryId as categoryId, "
+                        + "d.costPrice as costPrice, d.salePrice as baseSalePrice, d.status as globalStatus, d.prescriptionRequired as prescriptionRequired, "
+                        + "d.description as description, d.imageUrl as imageUrl, d.attributes as attributes, "
+                        + "s.priceOverride as priceOverride, s.status as branchStatus, s.note as note "
+                        + "FROM Drug d LEFT JOIN DrugBranchSetting s ON s.drugId = d.id AND s.branchId = :branchId "
+                        + "WHERE d.id = :drugId")
+        Optional<DrugWithBranchView> findWithBranchById(@Param("drugId") UUID drugId,
+                        @Param("branchId") UUID branchId);
+
+        @Query("SELECT d.id as id, d.sku as sku, d.name as name, d.slug as slug, d.categoryId as categoryId, "
+                        + "d.costPrice as costPrice, d.salePrice as baseSalePrice, d.status as globalStatus, d.prescriptionRequired as prescriptionRequired, "
+                        + "d.description as description, d.imageUrl as imageUrl, d.attributes as attributes, "
+                        + "s.priceOverride as priceOverride, s.status as branchStatus, s.note as note "
+                        + "FROM Drug d LEFT JOIN DrugBranchSetting s ON s.drugId = d.id AND s.branchId = :branchId "
+                        + "WHERE d.slug = :slug")
+        Optional<DrugWithBranchView> findWithBranchBySlug(@Param("slug") String slug,
+                        @Param("branchId") UUID branchId);
 }

@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.util.UUID;
+import java.util.Objects;
 
 @Service
 public class CartService {
@@ -60,7 +61,7 @@ public class CartService {
             }
 
             CartResponse response = spec
-                    .body(request)
+                    .body(Objects.requireNonNull(request, "request required"))
                     .retrieve()
                     .body(CartResponse.class);
 
@@ -115,7 +116,7 @@ public class CartService {
         try {
             CheckoutResponse orderResponse = orderRestClient.post()
                     .uri("/api/order/checkout")
-                    .body(request)
+                    .body(Objects.requireNonNull(request, "request required"))
                     .retrieve()
                     .body(CheckoutResponse.class);
             if (orderResponse == null) {
@@ -134,14 +135,14 @@ public class CartService {
         try {
             CheckoutResponse orderResponse = orderRestClient.post()
                     .uri("/api/order/pay")
-                    .body(request)
+                    .body(Objects.requireNonNull(request, "request required"))
                     .retrieve()
                     .body(CheckoutResponse.class);
             if (orderResponse == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Empty response from order-service");
             }
 
-            commitInventory(request.reservationId(), request.orderId());
+            commitInventory(request.reservationId(), request.orderId(), request.branchId());
             return orderResponse;
         } catch (RestClientException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "order-service unavailable", ex);
@@ -153,7 +154,8 @@ public class CartService {
             var items = request.items().stream()
                     .map(i -> new InventoryItemQuantity(i.productId(), i.quantity()))
                     .toList();
-            InventoryReserveRequest reserveRequest = new InventoryReserveRequest(orderId, items, 900);
+            InventoryReserveRequest reserveRequest = new InventoryReserveRequest(orderId, items, 900,
+                    request.branchId());
             InventoryReserveResponse response = inventoryRestClient.post()
                     .uri("/api/inventory/internal/inventory/reserve")
                     .body(reserveRequest)
@@ -168,9 +170,9 @@ public class CartService {
         }
     }
 
-    private void commitInventory(UUID reservationId, UUID orderId) {
+    private void commitInventory(UUID reservationId, UUID orderId, UUID branchId) {
         try {
-            InventoryCommitRequest commitRequest = new InventoryCommitRequest(reservationId, orderId);
+            InventoryCommitRequest commitRequest = new InventoryCommitRequest(reservationId, orderId, branchId);
             inventoryRestClient.post()
                     .uri("/api/inventory/internal/inventory/commit")
                     .body(commitRequest)
@@ -181,9 +183,9 @@ public class CartService {
         }
     }
 
-    public void releaseInventory(UUID reservationId, UUID orderId) {
+    public void releaseInventory(UUID reservationId, UUID orderId, UUID branchId) {
         try {
-            InventoryReleaseRequest releaseRequest = new InventoryReleaseRequest(reservationId, orderId);
+            InventoryReleaseRequest releaseRequest = new InventoryReleaseRequest(reservationId, orderId, branchId);
             inventoryRestClient.post()
                     .uri("/api/inventory/internal/inventory/release")
                     .body(releaseRequest)

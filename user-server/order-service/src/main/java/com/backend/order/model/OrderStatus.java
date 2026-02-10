@@ -1,7 +1,11 @@
 package com.backend.order.model;
 
 public enum OrderStatus {
+    DRAFT,
     PENDING_PAYMENT,
-    PAID,
-    CANCELLED
+    PLACED,
+    CONFIRMED,
+    SHIPPING,
+    COMPLETED,
+    CANCELED
 }

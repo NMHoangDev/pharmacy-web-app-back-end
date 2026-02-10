@@ -1,6 +1,8 @@
 package com.backend.order.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -10,9 +12,11 @@ import java.util.UUID;
 public class Payment {
 
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(columnDefinition = "char(36)")
     private UUID id;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "order_id", nullable = false, columnDefinition = "char(36)")
     private UUID orderId;
 
@@ -31,6 +35,13 @@ public class Payment {
 
     @Column(name = "created_at")
     private Instant createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
 
     public Payment() {
     }

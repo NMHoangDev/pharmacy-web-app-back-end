@@ -1,13 +1,17 @@
 package com.backend.appointment.model;
 
 public enum AppointmentStatus {
-    // old values kept for backward compatibility
+    // legacy values kept for backward compatibility
     REQUESTED,
+    PENDING,
     DONE,
 
-    // preferred new lifecycle
-    PENDING,
+    // preferred lifecycle
     CONFIRMED,
+    IN_PROGRESS,
+    COMPLETED,
     CANCELLED,
-    COMPLETED
+    NO_SHOW,
+    RESCHEDULED,
+    REFUNDED
 }

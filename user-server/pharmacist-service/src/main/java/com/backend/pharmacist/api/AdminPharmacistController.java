@@ -29,6 +29,7 @@ public class AdminPharmacistController {
             @RequestParam(name = "mode", required = false) String mode,
             @RequestParam(name = "experience", required = false) String experience,
             @RequestParam(name = "verification", required = false) String verification,
+            @RequestParam(name = "branchId", required = false) UUID branchId,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size) {
         Boolean verified = null;
@@ -38,7 +39,8 @@ public class AdminPharmacistController {
             verified = false;
         }
         return ResponseEntity
-                .ok(pharmacistService.list(query, specialty, status, mode, experience, verified, page, size));
+                .ok(pharmacistService.list(query, specialty, status, mode, experience, verified, page, size,
+                        branchId));
     }
 
     @PostMapping

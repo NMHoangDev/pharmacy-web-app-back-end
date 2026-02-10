@@ -27,16 +27,19 @@ public class PublicPharmacistController {
             @RequestParam(name = "mode", required = false) String mode,
             @RequestParam(name = "experience", required = false) String experience,
             @RequestParam(name = "verified", required = false) Boolean verified,
+            @RequestParam(name = "branchId", required = false) UUID branchId,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size) {
         return ResponseEntity
-                .ok(pharmacistService.list(query, specialty, status, mode, experience, verified, page, size));
+                .ok(pharmacistService.list(query, specialty, status, mode, experience, verified, page, size,
+                        branchId));
     }
 
     @GetMapping("/online")
     public ResponseEntity<List<PharmacistResponse>> online(
-            @RequestParam(name = "limit", defaultValue = "6") int limit) {
-        return ResponseEntity.ok(pharmacistService.listOnline(limit));
+            @RequestParam(name = "limit", defaultValue = "6") int limit,
+            @RequestParam(name = "branchId", required = false) UUID branchId) {
+        return ResponseEntity.ok(pharmacistService.listOnline(limit, branchId));
     }
 
     @GetMapping("/{id}")

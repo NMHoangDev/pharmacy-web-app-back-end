@@ -1,8 +1,11 @@
 package com.backend.order.model;
 
 import jakarta.persistence.*;
-
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -10,18 +13,57 @@ import java.util.UUID;
 public class OrderEntity {
 
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(columnDefinition = "char(36)")
     private UUID id;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "user_id", nullable = false, columnDefinition = "char(36)")
     private UUID userId;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "branch_id", columnDefinition = "char(36)")
+    private UUID branchId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
     private OrderStatus status;
 
+    @Column(name = "subtotal", nullable = false)
+    private double subtotal;
+
+    @Column(name = "shipping_fee", nullable = false)
+    private double shippingFee;
+
+    @Column(name = "discount_amount", nullable = false)
+    private double discountAmount;
+
     @Column(name = "total_amount", nullable = false)
-    private double totalAmount;
+    private double totalAmount; // Grand total
+
+    @Column(name = "payment_method", length = 32)
+    private String paymentMethod;
+
+    @Column(name = "payment_status", length = 32)
+    private String paymentStatus;
+
+    @Column(columnDefinition = "TEXT")
+    private String note;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "shipping_address_id")
+    private OrderShippingAddress shippingAddress;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "shipping_id")
+    private OrderShipping shipping;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "discount_id")
+    private OrderDiscount discount;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderItem> items = new ArrayList<>();
 
     @Column(name = "created_at")
     private Instant createdAt;
@@ -32,14 +74,18 @@ public class OrderEntity {
     public OrderEntity() {
     }
 
-    public OrderEntity(UUID id, UUID userId, OrderStatus status, double totalAmount) {
-        this.id = id;
-        this.userId = userId;
-        this.status = status;
-        this.totalAmount = totalAmount;
-        this.createdAt = Instant.now();
-        this.updatedAt = Instant.now();
+    @PrePersist
+    protected void onCreate() {
+        createdAt = Instant.now();
+        updatedAt = Instant.now();
     }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    // Getters and Setters
 
     public UUID getId() {
         return id;
@@ -57,6 +103,14 @@ public class OrderEntity {
         this.userId = userId;
     }
 
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
+    }
+
     public OrderStatus getStatus() {
         return status;
     }
@@ -65,12 +119,97 @@ public class OrderEntity {
         this.status = status;
     }
 
+    public double getSubtotal() {
+        return subtotal;
+    }
+
+    public void setSubtotal(double subtotal) {
+        this.subtotal = subtotal;
+    }
+
+    public double getShippingFee() {
+        return shippingFee;
+    }
+
+    public void setShippingFee(double shippingFee) {
+        this.shippingFee = shippingFee;
+    }
+
+    public double getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(double discountAmount) {
+        this.discountAmount = discountAmount;
+    }
+
     public double getTotalAmount() {
         return totalAmount;
     }
 
     public void setTotalAmount(double totalAmount) {
         this.totalAmount = totalAmount;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
+
+    public OrderShippingAddress getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(OrderShippingAddress shippingAddress) {
+        this.shippingAddress = shippingAddress;
+    }
+
+    public OrderShipping getShipping() {
+        return shipping;
+    }
+
+    public void setShipping(OrderShipping shipping) {
+        this.shipping = shipping;
+    }
+
+    public OrderDiscount getDiscount() {
+        return discount;
+    }
+
+    public void setDiscount(OrderDiscount discount) {
+        this.discount = discount;
+    }
+
+    public List<OrderItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<OrderItem> items) {
+        this.items = items;
+    }
+
+    public void addItem(OrderItem item) {
+        items.add(item);
+        item.setOrder(this);
     }
 
     public Instant getCreatedAt() {

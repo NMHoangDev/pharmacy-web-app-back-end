@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS drugs (
         name VARCHAR(255) NOT NULL,
         slug VARCHAR(255) UNIQUE NOT NULL,
         category_id CHAR(36),
-        price DECIMAL(12,2) NOT NULL,
+        cost_price DECIMAL(12,2),
+        sale_price DECIMAL(12,2) NOT NULL,
         status VARCHAR(16) NOT NULL CHECK (status IN ('ACTIVE','INACTIVE')),
         prescription_required BOOLEAN DEFAULT FALSE,
         description TEXT,
@@ -25,6 +26,18 @@ CREATE TABLE IF NOT EXISTS drugs (
         attributes JSON,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS drug_branch_settings (
+        id CHAR(36) PRIMARY KEY,
+        drug_id CHAR(36) NOT NULL,
+        branch_id CHAR(36) NOT NULL,
+        price_override DECIMAL(12,2),
+        status VARCHAR(16) NOT NULL CHECK (status IN ('ACTIVE','INACTIVE')),
+        note TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE KEY uk_drug_branch (drug_id, branch_id)
 );
 
 -- Migration helper (run once if your existing DB was created with BIGINT ids)
@@ -71,6 +84,36 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'cost_price';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN cost_price DECIMAL(12,2)',
+        'SELECT "cost_price already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'sale_price';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN sale_price DECIMAL(12,2)',
+        'SELECT "sale_price already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'price';
+SET @sql = IF(@exists = 1,
+        'UPDATE drugs SET sale_price = COALESCE(sale_price, price) WHERE sale_price IS NULL',
+        'SELECT "price column not found"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
         FROM information_schema.columns
  WHERE table_schema = @schema AND table_name = 'categories' AND column_name = 'parent_id';
 SET @sql = IF(@exists = 0,
@@ -106,3 +149,29 @@ SET @sql = IF(@exists = 0,
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists FROM information_schema.statistics
+ WHERE table_schema = @schema AND table_name = 'drug_branch_settings' AND index_name = 'idx_drug_branch_drug';
+SET @sql = IF(@exists = 0,
+                'CREATE INDEX idx_drug_branch_drug ON drug_branch_settings(drug_id)',
+                'SELECT "idx_drug_branch_drug already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists FROM information_schema.statistics
+ WHERE table_schema = @schema AND table_name = 'drug_branch_settings' AND index_name = 'idx_drug_branch_branch';
+SET @sql = IF(@exists = 0,
+                'CREATE INDEX idx_drug_branch_branch ON drug_branch_settings(branch_id)',
+                'SELECT "idx_drug_branch_branch already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+INSERT INTO drug_branch_settings (id, drug_id, branch_id, price_override, status, note, created_at, updated_at)
+SELECT UUID(), d.id, '00000000-0000-0000-0000-000000000000', NULL, d.status, NULL, NOW(), NOW()
+        FROM drugs d
+ WHERE NOT EXISTS (
+                                SELECT 1 FROM drug_branch_settings s
+                                 WHERE s.drug_id = d.id AND s.branch_id = '00000000-0000-0000-0000-000000000000'
+ );

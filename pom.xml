@@ -18,6 +18,7 @@
     <spring.kafka.version>3.1.0</spring.kafka.version>
     <flyway.version>10.10.0</flyway.version>
     <lombok.version>1.18.30</lombok.version>
+    <jjwt.version>0.11.5</jjwt.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
   </properties>
@@ -35,6 +36,7 @@
     <module>user-server/identity-service</module>
     <module>user-server/user-service</module>
     <module>user-server/catalog-service</module>
+    <module>user-server/branch-service</module>
     <module>user-server/inventory-service</module>
     <module>user-server/order-service</module>
     <module>user-server/cart-service</module>
@@ -44,7 +46,7 @@
     <module>user-server/review-service</module>
     <module>user-server/notification-service</module>
     <module>user-server/media-service</module>
-     <module>user-server/consultation-service</module>
+ 
 
     <!-- admin-side services -->
     <module>admin-server/admin-bff-service</module>
@@ -88,12 +90,33 @@
         <artifactId>flyway-core</artifactId>
         <version>${flyway.version}</version>
       </dependency>
+      <dependency>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-mysql</artifactId>
+        <version>${flyway.version}</version>
+      </dependency>
 
-      <!-- Lombok -->
       <dependency>
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>
         <version>${lombok.version}</version>
+      </dependency>
+
+      <!-- JJWT -->
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-api</artifactId>
+        <version>${jjwt.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-impl</artifactId>
+        <version>${jjwt.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-jackson</artifactId>
+        <version>${jjwt.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

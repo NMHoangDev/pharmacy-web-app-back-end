@@ -1,3 +1,8 @@
-com\backend\common\security\JwtClaims.class
 com\backend\common\security\UserPrincipal.class
+com\backend\common\security\KeycloakJwtRoleConverter.class
+com\backend\common\security\CommonSecurityConfig$ServletSecurityConfig.class
+com\backend\common\security\JwtClaims.class
+com\backend\common\security\CommonSecurityConfig$ReactiveSecurityConfig.class
+com\backend\common\security\CommonSecurityConfig.class
+com\backend\common\security\AuthErrorResponse.class
 com\backend\common\security\Roles.class

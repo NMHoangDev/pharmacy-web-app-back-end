@@ -30,14 +30,17 @@ public class PharmacistService {
     private final PharmacistRepository pharmacistRepo;
     private final PharmacistShiftRepository shiftRepo;
     private final ObjectMapper mapper;
+    private final BranchClient branchClient;
 
     public PharmacistService(
             PharmacistRepository pharmacistRepo,
             PharmacistShiftRepository shiftRepo,
-            ObjectMapper mapper) {
+            ObjectMapper mapper,
+            BranchClient branchClient) {
         this.pharmacistRepo = pharmacistRepo;
         this.shiftRepo = shiftRepo;
         this.mapper = mapper;
+        this.branchClient = branchClient;
     }
 
     public Page<PharmacistResponse> list(
@@ -48,15 +51,25 @@ public class PharmacistService {
             String experience,
             Boolean verified,
             int page,
-            int size) {
+            int size,
+            UUID branchId) {
         Pageable pageable = PageRequest.of(page, size);
-        Specification<Pharmacist> spec = buildSpec(query, specialty, status, mode, experience, verified);
+        List<UUID> pharmacistIds = branchClient.getBranchPharmacistIds(branchId);
+        if (branchId != null && (pharmacistIds == null || pharmacistIds.isEmpty())) {
+            return Page.empty(pageable);
+        }
+        Specification<Pharmacist> spec = buildSpec(query, specialty, status, mode, experience, verified,
+                pharmacistIds);
         return pharmacistRepo.findAll(spec, pageable).map(this::toResponse);
     }
 
-    public List<PharmacistResponse> listOnline(int limit) {
+    public List<PharmacistResponse> listOnline(int limit, UUID branchId) {
         Pageable pageable = PageRequest.of(0, limit);
-        Specification<Pharmacist> spec = buildSpec(null, null, "ONLINE", null, null, true);
+        List<UUID> pharmacistIds = branchClient.getBranchPharmacistIds(branchId);
+        if (branchId != null && (pharmacistIds == null || pharmacistIds.isEmpty())) {
+            return List.of();
+        }
+        Specification<Pharmacist> spec = buildSpec(null, null, "ONLINE", null, null, true, pharmacistIds);
         return pharmacistRepo.findAll(spec, pageable).map(this::toResponse).getContent();
     }
 
@@ -155,9 +168,13 @@ public class PharmacistService {
             String status,
             String mode,
             String experience,
-            Boolean verified) {
+            Boolean verified,
+            List<UUID> pharmacistIds) {
         return (root, q, cb) -> {
             var predicates = cb.conjunction();
+            if (pharmacistIds != null && !pharmacistIds.isEmpty()) {
+                predicates.getExpressions().add(root.get("id").in(pharmacistIds));
+            }
             if (StringUtils.hasText(query)) {
                 String like = "%" + query.toLowerCase() + "%";
                 predicates.getExpressions().add(
