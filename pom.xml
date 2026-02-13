@@ -21,6 +21,8 @@
     <jjwt.version>0.11.5</jjwt.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
 
   <modules>
@@ -46,6 +48,7 @@
     <module>user-server/review-service</module>
     <module>user-server/notification-service</module>
     <module>user-server/media-service</module>
+    <module>user-server/content-service</module>
  
 
     <!-- admin-side services -->
@@ -130,6 +133,7 @@
         <configuration>
           <release>${java.version}</release>
           <parameters>true</parameters>
+          <encoding>${project.build.sourceEncoding}</encoding>
         </configuration>
       </plugin>
 

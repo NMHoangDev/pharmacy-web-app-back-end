@@ -26,6 +26,8 @@ public class OrderService {
         private final PaymentRepository paymentRepository;
         private final OutboxEventRepository outboxRepository;
         private final CheckoutService checkoutService;
+        private final BranchClient branchClient;
+        private final InventoryClient inventoryClient;
 
         public OrderService(CartRepository cartRepository,
                         CartItemRepository cartItemRepository,
@@ -33,7 +35,9 @@ public class OrderService {
                         OrderItemRepository orderItemRepository,
                         PaymentRepository paymentRepository,
                         OutboxEventRepository outboxRepository,
-                        CheckoutService checkoutService) {
+                        CheckoutService checkoutService,
+                        BranchClient branchClient,
+                        InventoryClient inventoryClient) {
                 this.cartRepository = cartRepository;
                 this.cartItemRepository = cartItemRepository;
                 this.orderRepository = orderRepository;
@@ -41,6 +45,8 @@ public class OrderService {
                 this.paymentRepository = paymentRepository;
                 this.outboxRepository = outboxRepository;
                 this.checkoutService = checkoutService;
+                this.branchClient = branchClient;
+                this.inventoryClient = inventoryClient;
         }
 
         public CartResponse upsertCartItem(UUID userId, CartItemRequest request) {
@@ -287,6 +293,133 @@ public class OrderService {
                 return toOrderResponse(order, resItems);
         }
 
+        public BranchAvailabilityResponse getBranchAvailability(UUID orderId) {
+                OrderEntity order = orderRepository.findById(requireId(orderId, "orderId required"))
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                "Order not found"));
+                List<OrderItem> items = orderItemRepository.findByIdOrderId(orderId);
+                if (items.isEmpty()) {
+                        return new BranchAvailabilityResponse(orderId, List.of(), List.of(), List.of());
+                }
+
+                List<BranchClient.BranchSummaryDto> branches = branchClient.listActive();
+                List<BranchSummaryDto> branchDtos = branches.stream()
+                                .map(b -> new BranchSummaryDto(b.id(), b.code(), b.name(), b.status(), b.addressLine(),
+                                                b.ward(), b.district(), b.city(), b.province(), b.country(), b.phone(),
+                                                b.timezone()))
+                                .toList();
+
+                List<UUID> branchIds = branchDtos.stream().map(BranchSummaryDto::id).toList();
+                List<InventoryClient.ItemQuantity> reqItems = items.stream()
+                                .map(i -> new InventoryClient.ItemQuantity(i.getId().getProductId(),
+                                                i.getQuantity()))
+                                .toList();
+
+                InventoryClient.AvailabilityBatchResponse availability = inventoryClient
+                                .batchAvailability(new InventoryClient.AvailabilityBatchRequest(
+                                                branchIds,
+                                                reqItems));
+                List<InventoryClient.AvailabilityBatchItem> availabilityItems = availability == null
+                                || availability.items() == null ? List.of() : availability.items();
+
+                List<BranchAvailabilityItem> responseItems = items.stream().map(i -> {
+                        InventoryClient.AvailabilityBatchItem found = availabilityItems.stream()
+                                        .filter(a -> a.productId().equals(i.getId().getProductId()))
+                                        .findFirst()
+                                        .orElse(null);
+                        List<BranchStockAvailability> byBranch = found == null || found.byBranch() == null
+                                        ? List.of()
+                                        : found.byBranch().stream()
+                                                        .map(b -> new BranchStockAvailability(b.branchId(),
+                                                                        b.available(), b.onHand(), b.reserved()))
+                                                        .toList();
+                        return new BranchAvailabilityItem(i.getId().getProductId(), i.getProductName(),
+                                        i.getQuantity(), byBranch);
+                }).toList();
+
+                List<UUID> recommended = branchIds.stream()
+                                .filter(branchId -> responseItems.stream().allMatch(item -> item.byBranch().stream()
+                                                .filter(b -> b.branchId().equals(branchId))
+                                                .findFirst()
+                                                .map(b -> b.availableQty() >= item.quantityOrdered())
+                                                .orElse(false)))
+                                .toList();
+
+                return new BranchAvailabilityResponse(orderId, responseItems, branchDtos, recommended);
+        }
+
+        public OrderResponse assignBranch(UUID orderId, AssignBranchRequest request) {
+                if (request == null || request.branchId() == null) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "branchId required");
+                }
+                OrderEntity order = orderRepository.findById(requireId(orderId, "orderId required"))
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                "Order not found"));
+                if (!isAssignableStatus(order.getStatus())) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                        "Order status not allowed for assignment");
+                }
+
+                BranchClient.BranchSummaryDto branch = branchClient.getBranch(request.branchId());
+                if (branch == null || branch.status() == null
+                                || !branch.status().equalsIgnoreCase("ACTIVE")) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Branch is not active");
+                }
+
+                if (order.getFulfillmentBranchId() != null
+                                && !order.getFulfillmentBranchId().equals(request.branchId())) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                        "Order already assigned to another branch");
+                }
+
+                List<OrderItem> items = orderItemRepository.findByIdOrderId(orderId);
+                List<InventoryClient.ItemQuantity> reqItems = items.stream()
+                                .map(i -> new InventoryClient.ItemQuantity(i.getId().getProductId(),
+                                                i.getQuantity()))
+                                .toList();
+
+                InventoryClient.AvailabilityBatchResponse availability = inventoryClient
+                                .batchAvailability(new InventoryClient.AvailabilityBatchRequest(
+                                                List.of(request.branchId()), reqItems));
+                List<InventoryClient.AvailabilityBatchItem> availabilityItems = availability == null
+                                || availability.items() == null ? List.of() : availability.items();
+                for (OrderItem item : items) {
+                        InventoryClient.AvailabilityBatchItem found = availabilityItems.stream()
+                                        .filter(a -> a.productId().equals(item.getId().getProductId()))
+                                        .findFirst()
+                                        .orElse(null);
+                        InventoryClient.AvailabilityByBranch stock = found == null || found.byBranch() == null
+                                        ? null
+                                        : found.byBranch().stream()
+                                                        .filter(b -> b.branchId().equals(request.branchId()))
+                                                        .findFirst()
+                                                        .orElse(null);
+                        int available = stock == null ? 0 : stock.available();
+                        if (available < item.getQuantity()) {
+                                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                                "Insufficient inventory for product " + item.getId().getProductId());
+                        }
+                }
+
+                InventoryClient.ReserveResponse reserve = inventoryClient.reserve(
+                                new InventoryClient.ReserveRequest(orderId, reqItems, 3600,
+                                                "order assignment", "admin", request.branchId()));
+                UUID reservationId = reserve == null ? null : reserve.reservationId();
+
+                order.setFulfillmentBranchId(request.branchId());
+                order.setFulfillmentAssignedAt(Instant.now());
+                order.setFulfillmentAssignedBy(null);
+                order.setFulfillmentStatus("ASSIGNED");
+                order.setInventoryReservationId(reservationId);
+                orderRepository.save(order);
+
+                List<OrderResponseItem> resItems = items.stream()
+                                .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
+                                                i.getUnitPrice(), i.getQuantity()))
+                                .collect(Collectors.toList());
+                return toOrderResponse(order, resItems);
+        }
+
         private OrderResponse toOrderResponse(OrderEntity order, List<OrderResponseItem> items) {
                 ShippingAddressResponse shippingAddress = null;
                 if (order.getShippingAddress() != null) {
@@ -325,6 +458,11 @@ public class OrderService {
                                 order.getId(),
                                 order.getUserId(),
                                 order.getBranchId(),
+                                order.getFulfillmentBranchId(),
+                                order.getFulfillmentAssignedAt(),
+                                order.getFulfillmentAssignedBy(),
+                                order.getFulfillmentStatus(),
+                                order.getInventoryReservationId(),
                                 order.getStatus().name(),
                                 order.getCreatedAt(),
                                 order.getSubtotal(),
@@ -350,6 +488,12 @@ public class OrderService {
                 return cartRepository.findById(requireId(request.userId(), "userId required"))
                                 .map(Cart::getBranchId)
                                 .orElse(null);
+        }
+
+        private boolean isAssignableStatus(OrderStatus status) {
+                return status == OrderStatus.PENDING_PAYMENT
+                                || status == OrderStatus.PLACED
+                                || status == OrderStatus.CONFIRMED;
         }
 
         private @NonNull UUID requireId(UUID id, String message) {

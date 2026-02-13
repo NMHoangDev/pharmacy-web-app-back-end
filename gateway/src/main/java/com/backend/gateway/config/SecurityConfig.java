@@ -39,7 +39,12 @@ public class SecurityConfig {
                                                 .pathMatchers(HttpMethod.GET, "/api/branches/**", "/api/branches")
                                                 .permitAll()
                                                 .pathMatchers(HttpMethod.GET, "/api/catalog/products/**",
-                                                                "/api/catalog/public/**", "/api/media/public/**")
+                                                                "/api/catalog/public/**", "/api/media/public/**",
+                                                                "/api/media/**")
+                                                .permitAll()
+                                                .pathMatchers(HttpMethod.GET, "/api/content/**")
+                                                .permitAll()
+                                                .pathMatchers(HttpMethod.POST, "/api/content/posts/*/view")
                                                 .permitAll()
                                                 .pathMatchers(HttpMethod.OPTIONS).permitAll()
 

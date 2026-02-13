@@ -50,6 +50,12 @@ public class InventoryApi {
         return ResponseEntity.ok(inventoryService.availability(branchId, resolved));
     }
 
+    @PostMapping("/internal/inventory/availability/batch")
+    public ResponseEntity<AvailabilityBatchResponse> availabilityBatch(
+            @RequestBody @Valid AvailabilityBatchRequest request) {
+        return ResponseEntity.ok(inventoryService.availabilityBatch(request));
+    }
+
     @PostMapping("/internal/inventory/adjust")
     public ResponseEntity<AdjustResponse> adjust(@RequestBody @Valid AdjustRequest request) {
         return ResponseEntity.ok(inventoryService.adjust(request));

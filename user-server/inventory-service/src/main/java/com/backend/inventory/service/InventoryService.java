@@ -149,6 +149,36 @@ public class InventoryService {
         return new AvailabilityResponse(result);
     }
 
+    public AvailabilityBatchResponse availabilityBatch(AvailabilityBatchRequest request) {
+        if (request == null || request.branchIds() == null || request.branchIds().isEmpty()
+                || request.items() == null || request.items().isEmpty()) {
+            return new AvailabilityBatchResponse(List.of());
+        }
+
+        List<UUID> branchIds = request.branchIds();
+        List<UUID> productIds = request.items().stream().map(ItemQuantity::productId).toList();
+        List<InventoryItem> items = inventoryRepo.findByBranchIdInAndProductIdIn(branchIds, productIds);
+        Map<UUID, Map<UUID, InventoryItem>> byBranch = new HashMap<>();
+        for (InventoryItem item : items) {
+            byBranch
+                    .computeIfAbsent(item.getBranchId(), key -> new HashMap<>())
+                    .put(item.getProductId(), item);
+        }
+
+        List<AvailabilityBatchItem> result = productIds.stream().map(pid -> {
+            List<AvailabilityByBranch> byBranchResult = branchIds.stream().map(branchId -> {
+                InventoryItem item = byBranch.getOrDefault(branchId, Map.of()).get(pid);
+                int onHand = item == null ? 0 : item.getOnHand();
+                int reserved = item == null ? 0 : item.getReserved();
+                int available = Math.max(0, onHand - reserved);
+                return new AvailabilityByBranch(branchId, available, onHand, reserved);
+            }).toList();
+            return new AvailabilityBatchItem(pid, byBranchResult);
+        }).toList();
+
+        return new AvailabilityBatchResponse(result);
+    }
+
     public AdjustResponse adjust(AdjustRequest req) {
         if (req.productId() == null || req.delta() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "productId and delta are required");

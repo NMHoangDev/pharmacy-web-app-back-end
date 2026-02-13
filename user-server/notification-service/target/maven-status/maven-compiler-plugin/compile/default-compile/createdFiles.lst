@@ -1,4 +1,0 @@
-com\backend\notification\messaging\OrderEventListener.class
-com\backend\notification\api\PingController.class
-com\backend\notification\messaging\NotificationSender.class
-com\backend\notification\NotificationServiceApplication.class

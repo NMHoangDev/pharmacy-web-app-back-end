@@ -25,6 +25,24 @@ public class OrderEntity {
     @Column(name = "branch_id", columnDefinition = "char(36)")
     private UUID branchId;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "fulfillment_branch_id", columnDefinition = "char(36)")
+    private UUID fulfillmentBranchId;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "fulfillment_assigned_by", columnDefinition = "char(36)")
+    private UUID fulfillmentAssignedBy;
+
+    @Column(name = "fulfillment_assigned_at")
+    private Instant fulfillmentAssignedAt;
+
+    @Column(name = "fulfillment_status", length = 32)
+    private String fulfillmentStatus;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "inventory_reservation_id", columnDefinition = "char(36)")
+    private UUID inventoryReservationId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
     private OrderStatus status;
@@ -109,6 +127,46 @@ public class OrderEntity {
 
     public void setBranchId(UUID branchId) {
         this.branchId = branchId;
+    }
+
+    public UUID getFulfillmentBranchId() {
+        return fulfillmentBranchId;
+    }
+
+    public void setFulfillmentBranchId(UUID fulfillmentBranchId) {
+        this.fulfillmentBranchId = fulfillmentBranchId;
+    }
+
+    public UUID getFulfillmentAssignedBy() {
+        return fulfillmentAssignedBy;
+    }
+
+    public void setFulfillmentAssignedBy(UUID fulfillmentAssignedBy) {
+        this.fulfillmentAssignedBy = fulfillmentAssignedBy;
+    }
+
+    public Instant getFulfillmentAssignedAt() {
+        return fulfillmentAssignedAt;
+    }
+
+    public void setFulfillmentAssignedAt(Instant fulfillmentAssignedAt) {
+        this.fulfillmentAssignedAt = fulfillmentAssignedAt;
+    }
+
+    public String getFulfillmentStatus() {
+        return fulfillmentStatus;
+    }
+
+    public void setFulfillmentStatus(String fulfillmentStatus) {
+        this.fulfillmentStatus = fulfillmentStatus;
+    }
+
+    public UUID getInventoryReservationId() {
+        return inventoryReservationId;
+    }
+
+    public void setInventoryReservationId(UUID inventoryReservationId) {
+        this.inventoryReservationId = inventoryReservationId;
     }
 
     public OrderStatus getStatus() {

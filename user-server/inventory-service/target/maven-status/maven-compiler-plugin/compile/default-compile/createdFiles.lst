@@ -5,12 +5,14 @@ com\backend\inventory\service\StockDocumentService.class
 com\backend\inventory\api\dto\StockDocumentResponse.class
 com\backend\inventory\model\StockDocumentStatus.class
 com\backend\inventory\model\ReservationLineId.class
+com\backend\inventory\api\dto\AvailabilityBatchRequest.class
 com\backend\inventory\api\dto\CommitRequest.class
 com\backend\inventory\repo\ReservationRepository.class
 com\backend\inventory\service\BranchClient$CacheEntry.class
 com\backend\inventory\InventoryServiceApplication.class
 com\backend\inventory\service\InventoryService.class
 com\backend\inventory\api\dto\ReleaseRequest.class
+com\backend\inventory\api\dto\AvailabilityBatchResponse.class
 com\backend\inventory\api\dto\StockDocumentPageResponse.class
 com\backend\inventory\api\InventoryAdminApi.class
 com\backend\inventory\model\ReservationLine.class
@@ -28,6 +30,8 @@ com\backend\inventory\service\BranchClient.class
 com\backend\inventory\repo\StockDocumentRepository.class
 com\backend\inventory\model\InventoryActivity.class
 com\backend\inventory\model\StockDocumentType.class
+com\backend\inventory\api\dto\AvailabilityBatchItem.class
+com\backend\inventory\api\dto\AvailabilityByBranch.class
 com\backend\inventory\model\StockDocumentEntity.class
 com\backend\inventory\service\BranchClient$BranchInternalDto.class
 com\backend\inventory\model\StockDocumentLineEntity.class

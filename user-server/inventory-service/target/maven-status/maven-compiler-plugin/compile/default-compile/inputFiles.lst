@@ -18,6 +18,7 @@ D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\service\BranchClient.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\repo\ReservationRepository.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\StockDocumentResponse.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\AvailabilityBatchItem.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\model\StockDocumentType.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\model\ReservationLine.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\repo\InventoryItemRepository.java
@@ -34,8 +35,11 @@ D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\AdjustResponse.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\InventoryAdminApi.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\service\InventoryService.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\AvailabilityByBranch.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\AvailabilityBatchRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\model\InventoryItemId.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\AvailabilityItem.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\AvailabilityBatchResponse.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\StockDocumentApproveRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\api\dto\StockDocumentSubmitRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\inventory-service\src\main\java\com\backend\inventory\model\InventoryItem.java

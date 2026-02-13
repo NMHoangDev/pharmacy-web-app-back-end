@@ -1,6 +1,8 @@
 package com.backend.order.api;
 
 import com.backend.order.api.dto.OrderResponse;
+import com.backend.order.api.dto.AssignBranchRequest;
+import com.backend.order.api.dto.BranchAvailabilityResponse;
 import com.backend.order.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -46,5 +48,16 @@ public class AdminOrderApi {
     @PostMapping("/{id}/cancel")
     public ResponseEntity<OrderResponse> cancelOrder(@PathVariable UUID id) {
         return ResponseEntity.ok(orderService.cancelOrder(id));
+    }
+
+    @GetMapping("/{id}/branch-availability")
+    public ResponseEntity<BranchAvailabilityResponse> branchAvailability(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.getBranchAvailability(id));
+    }
+
+    @PostMapping("/{id}/assign-branch")
+    public ResponseEntity<OrderResponse> assignBranch(@PathVariable UUID id,
+            @RequestBody @Valid AssignBranchRequest request) {
+        return ResponseEntity.ok(orderService.assignBranch(id, request));
     }
 }

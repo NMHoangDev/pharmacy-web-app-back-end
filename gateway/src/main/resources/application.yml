@@ -60,6 +60,11 @@ spring:
           predicates:
             - Path=/api/inventory/**
           # Do not strip prefix so inventory-service receives /api/inventory/**
+        - id: content-service
+          uri: http://localhost:7031
+          predicates:
+            - Path=/api/content/**
+          # Do not strip prefix so content-service receives /api/content/**
         - id: payment-service
           uri: http://localhost:7020
           predicates:
