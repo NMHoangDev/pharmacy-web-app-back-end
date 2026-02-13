@@ -6,14 +6,15 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record DrugRequest(
-        @NotBlank String sku,
-        @NotBlank String name,
-        @NotBlank String slug,
-        @NotNull UUID categoryId,
-        @NotNull BigDecimal price,
-        @NotBlank String status,
-        Boolean prescriptionRequired,
-        String description,
-        String imageUrl,
-        String attributes) {
+                @NotBlank String sku,
+                @NotBlank String name,
+                @NotBlank String slug,
+                @NotNull UUID categoryId,
+                @NotNull BigDecimal costPrice,
+                @NotNull BigDecimal salePrice,
+                @NotBlank String status,
+                Boolean prescriptionRequired,
+                String description,
+                String imageUrl,
+                String attributes) {
 }

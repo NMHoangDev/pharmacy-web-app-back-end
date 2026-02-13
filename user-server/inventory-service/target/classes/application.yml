@@ -12,8 +12,21 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+        type:
+          preferred_uuid_jdbc_type: CHAR
+  sql:
+    init:
+      mode: never
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
 server:
   port: ${SERVER_PORT:7018}
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: always
 management:
   endpoints:
     web:
@@ -22,3 +35,8 @@ management:
 logging:
   level:
     org.hibernate.SQL: WARN
+inventory:
+  default-branch-id: ${INVENTORY_DEFAULT_BRANCH_ID:00000000-0000-0000-0000-000000000001}
+  branch-service:
+    base-url: ${BRANCH_SERVICE_URL:http://localhost:7030}
+    cache-ttl-seconds: 60

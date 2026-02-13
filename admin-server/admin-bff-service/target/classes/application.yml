@@ -1,6 +1,14 @@
 spring:
   application:
     name: admin-bff-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/pharmacy}
+    keycloak:
+      roles-source: realm
+      client-id: pharmacy-app
 server:
   port: ${SERVER_PORT:7010}
 management:
@@ -11,3 +19,5 @@ management:
 services:
   user:
     url: http://localhost:7016
+  order:
+    url: http://localhost:7019

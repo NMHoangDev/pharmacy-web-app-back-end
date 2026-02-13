@@ -1,0 +1,80 @@
+{
+  "realm": "pharmacy",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "ADMIN" },
+      { "name": "PHARMACIST" },
+      { "name": "USER" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "pharmacy-app",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "G6Z8zQp4S9yV2W5vB7n3m1X0kC8jL5hR",
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@local.test",
+      "email": "admin@local.test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Admin@123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ADMIN"]
+    },
+    {
+      "username": "pharmacist@local.test",
+      "email": "pharmacist@local.test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Pharmacist@123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["PHARMACIST"]
+    },
+    {
+      "username": "user@local.test",
+      "email": "user@local.test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "User@123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["USER"]
+    }
+  ]
+}

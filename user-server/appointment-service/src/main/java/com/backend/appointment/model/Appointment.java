@@ -6,18 +6,39 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 @Entity
-@Table(name = "appointments")
+@Table(name = "appointments", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_pharmacist_start", columnNames = { "pharmacist_id", "start_at" })
+}, indexes = {
+        @Index(name = "idx_pharmacist_start", columnList = "pharmacist_id,start_at"),
+        @Index(name = "idx_user_created", columnList = "user_id,created_at")
+})
 public class Appointment {
     @Id
-    @Column(columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "id", length = 36, nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "user_id", nullable = false, columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "user_id", length = 36, nullable = false)
     private UUID userId;
 
-    @Column(name = "pharmacist_id", nullable = false, columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "pharmacist_id", length = 36, nullable = false)
     private UUID pharmacistId;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "branch_id", length = 36)
+    private UUID branchId;
+
+    @Column(name = "full_name", length = 255)
+    private String fullName;
+
+    @Column(name = "contact", length = 255)
+    private String contact;
 
     @Column(name = "start_at", nullable = false)
     private LocalDateTime startAt;
@@ -31,10 +52,26 @@ public class Appointment {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
-    private Channel channel = Channel.VIDEO;
+    private Channel channel = Channel.VIDEO_CALL;
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    @Column(name = "cancel_reason", columnDefinition = "TEXT")
+    private String cancelReason;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "rescheduled_from_id", length = 36)
+    private UUID rescheduledFromId;
+
+    @Column(name = "reschedule_reason", columnDefinition = "TEXT")
+    private String rescheduleReason;
+
+    @Column(name = "refund_reason", columnDefinition = "TEXT")
+    private String refundReason;
+
+    @Column(name = "no_show_reason", columnDefinition = "TEXT")
+    private String noShowReason;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
@@ -58,12 +95,36 @@ public class Appointment {
         this.userId = userId;
     }
 
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public String getContact() {
+        return contact;
+    }
+
+    public void setContact(String contact) {
+        this.contact = contact;
+    }
+
     public UUID getPharmacistId() {
         return pharmacistId;
     }
 
     public void setPharmacistId(UUID pharmacistId) {
         this.pharmacistId = pharmacistId;
+    }
+
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
     }
 
     public LocalDateTime getStartAt() {
@@ -104,6 +165,46 @@ public class Appointment {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public String getCancelReason() {
+        return cancelReason;
+    }
+
+    public void setCancelReason(String cancelReason) {
+        this.cancelReason = cancelReason;
+    }
+
+    public UUID getRescheduledFromId() {
+        return rescheduledFromId;
+    }
+
+    public void setRescheduledFromId(UUID rescheduledFromId) {
+        this.rescheduledFromId = rescheduledFromId;
+    }
+
+    public String getRescheduleReason() {
+        return rescheduleReason;
+    }
+
+    public void setRescheduleReason(String rescheduleReason) {
+        this.rescheduleReason = rescheduleReason;
+    }
+
+    public String getRefundReason() {
+        return refundReason;
+    }
+
+    public void setRefundReason(String refundReason) {
+        this.refundReason = refundReason;
+    }
+
+    public String getNoShowReason() {
+        return noShowReason;
+    }
+
+    public void setNoShowReason(String noShowReason) {
+        this.noShowReason = noShowReason;
     }
 
     public Instant getCreatedAt() {

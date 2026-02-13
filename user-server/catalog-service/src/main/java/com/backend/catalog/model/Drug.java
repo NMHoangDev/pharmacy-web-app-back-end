@@ -28,7 +28,13 @@ public class Drug {
     @Column(name = "category_id", columnDefinition = "char(36)")
     private UUID categoryId;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(name = "cost_price", precision = 12, scale = 2)
+    private BigDecimal costPrice;
+
+    @Column(name = "sale_price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal salePrice;
+
+    @Column(name = "price", nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
 
     @Column(nullable = false)
@@ -90,6 +96,22 @@ public class Drug {
 
     public void setCategoryId(UUID categoryId) {
         this.categoryId = categoryId;
+    }
+
+    public BigDecimal getCostPrice() {
+        return costPrice;
+    }
+
+    public void setCostPrice(BigDecimal costPrice) {
+        this.costPrice = costPrice;
+    }
+
+    public BigDecimal getSalePrice() {
+        return salePrice;
+    }
+
+    public void setSalePrice(BigDecimal salePrice) {
+        this.salePrice = salePrice;
     }
 
     public BigDecimal getPrice() {

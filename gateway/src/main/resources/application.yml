@@ -6,8 +6,14 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: branch-service-public
+          uri: ${services.branch.uri:http://localhost:7030}
+          predicates:
+            - Path=/api/branches/**,/api/branches
+          # Public endpoints; still pass through JWT if present.
+
         - id: auth-service
-          uri: ${services.auth.uri:http://localhost:7015}
+          uri: ${services.auth.uri:http://localhost:${IDENTITY_SERVER_PORT:7070}}
           predicates:
             - Path=/api/auth/**
         - id: media-service
@@ -22,22 +28,28 @@ spring:
           filters:
             - StripPrefix=1
         - id: user-service
-          uri: http://localhost:7016
+          uri: http://127.0.0.1:7016
           predicates:
             - Path=/api/users/**
           # Do not strip prefix for user-service so it receives /api/users/**
+        - id: cart-service
+          uri: http://localhost:7026
+          predicates:
+            - Path=/api/cart/**,/api/cart
+          # Do not strip prefix so cart-service receives /api/cart/**
+          # preserve host header to avoid downstream mismatches
+          filters:
+            - PreserveHostHeader=true
         - id: order-service
           uri: http://localhost:7019
           predicates:
-            - Path=/api/orders/**
-          filters:
-            - StripPrefix=1
+            - Path=/api/orders/**, /api/order/**, /api/checkout/**
+          # Do not strip prefix so order-service receives /api/orders/** or /api/order/**
         - id: appointment-service
           uri: http://localhost:7024
           predicates:
-            - Path=/api/appointments/**
-          filters:
-            - StripPrefix=1
+            - Path=/api/appointments/**, /api/appointments, /api/consultations/**, /ws/**
+
         - id: review-service
           uri: http://localhost:7023
           predicates:
@@ -48,49 +60,70 @@ spring:
           predicates:
             - Path=/api/inventory/**
           # Do not strip prefix so inventory-service receives /api/inventory/**
+        - id: content-service
+          uri: http://localhost:7031
+          predicates:
+            - Path=/api/content/**
+          # Do not strip prefix so content-service receives /api/content/**
         - id: payment-service
           uri: http://localhost:7020
           predicates:
             - Path=/api/payments/**
-          filters:
-            - StripPrefix=1
+        - id: catalog-public
+          uri: http://localhost:7017
+          predicates:
+            - Path=/api/catalog/public/**
+          order: -1
         - id: catalog-service
           uri: http://localhost:7017
           predicates:
             - Path=/api/catalog/**
-          # Do not strip prefix so services receive full path (/api/catalog/**)
+          filters:
+            - TokenRelay
+        - id: pharmacist-service
+          uri: http://localhost:7025
+          predicates:
+            - Path=/api/pharmacists/**
+          filters:
+            - TokenRelay
+        - id: admin-pharmacist-service
+          uri: http://localhost:7025
+          predicates:
+            - Path=/api/admin/pharmacists/**
+          filters:
+            - TokenRelay
+          order: -1
+        - id: admin-order-service
+          uri: http://localhost:7019
+          predicates:
+            - Path=/api/admin/orders/**
+          filters:
+            - TokenRelay
+          order: -1
+        - id: admin-appointment-service
+          uri: http://localhost:7024
+          predicates:
+            - Path=/api/admin/appointments/**
+          filters:
+            - TokenRelay
+          order: -1
+
+        - id: admin-branch-service
+          uri: ${services.branch.uri:http://localhost:7030}
+          predicates:
+            - Path=/api/admin/branches/**,/api/admin/branches
+          filters:
+            - TokenRelay
+          order: -2
         - id: admin-bff
           uri: http://localhost:7010
           predicates:
             - Path=/api/admin/**
+          filters:
+            - TokenRelay
           # Do not strip prefix for admin-bff so the service receives the full path
           # (admin-bff controller is mapped to /api/admin/*)
 
-        # Optional direct admin services (uncomment if bypassing BFF)
-        # - id: cms-service
-        #   uri: http://localhost:7011
-        #   predicates:
-        #     - Path=/api/admin/cms/**
-        #   filters:
-        #     - StripPrefix=2
-        # - id: reporting-service
-        #   uri: http://localhost:7012
-        #   predicates:
-        #     - Path=/api/admin/reporting/**
-        #   filters:
-        #     - StripPrefix=2
-        # - id: audit-service
-        #   uri: http://localhost:7013
-        #   predicates:
-        #     - Path=/api/admin/audit/**
-        #   filters:
-        #     - StripPrefix=2
-        # - id: settings-service
-        #   uri: http://localhost:7014
-        #   predicates:
-        #     - Path=/api/admin/settings/**
-        #   filters:
-        #     - StripPrefix=2
       globalcors:
         corsConfigurations:
           "[/**]":
@@ -116,8 +149,8 @@ spring:
             fallbackUri: forward:/fallback
 
       httpclient:
-        connect-timeout: 3000
-        response-timeout: 10s
+        connect-timeout: 5000
+        response-timeout: 30s
       forwarded:
         enabled: true
 
@@ -125,8 +158,10 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:4040/realms/pharmacy
-          jwk-set-uri: http://localhost:4040/realms/pharmacy/protocol/openid-connect/certs
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/pharmacy}
+    keycloak:
+      roles-source: realm
+      client-id: pharmacy-app
 
 server:
   port: 8087
@@ -150,11 +185,13 @@ logging:
     org:
       springframework:
         cloud:
-          gateway: INFO
-        security: INFO
+          gateway: DEBUG
+        security: DEBUG
     reactor:
       netty:
         http:
-          client: WARN
+          client: DEBUG
+    # enable detailed gateway routing logs
+    "[org.springframework.cloud.gateway.filter]": DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{X-Correlation-Id}] %logger - %msg%n"

@@ -1,0 +1,12 @@
+com\backend\media\api\dto\Base64ImageRequest.class
+com\backend\media\api\dto\PresignResponse.class
+com\backend\media\api\GlobalExceptionHandler$ErrorResponse.class
+com\backend\media\api\dto\Base64UploadRequest.class
+com\backend\media\api\MediaController.class
+com\backend\media\api\GlobalExceptionHandler.class
+com\backend\media\service\MediaStorageService$StoredObject.class
+com\backend\media\api\dto\MediaUploadResponse.class
+com\backend\media\service\MediaStorageService.class
+com\backend\media\MediaServiceApplication.class
+com\backend\media\config\S3Config.class
+com\backend\media\api\dto\BatchUploadResponse.class

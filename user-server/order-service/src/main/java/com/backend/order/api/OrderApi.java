@@ -6,10 +6,11 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/order")
+@RequestMapping({ "/api/order", "/api/orders" })
 public class OrderApi {
 
     private final OrderService orderService;
@@ -56,5 +57,10 @@ public class OrderApi {
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderResponse> getOrder(@PathVariable UUID orderId) {
         return ResponseEntity.ok(orderService.getOrder(orderId));
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<OrderResponse>> listByUser(@PathVariable UUID userId) {
+        return ResponseEntity.ok(orderService.listByUser(userId));
     }
 }

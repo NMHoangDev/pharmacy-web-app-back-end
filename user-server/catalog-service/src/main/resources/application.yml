@@ -12,6 +12,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db.sql
 server:
   port: ${SERVER_PORT:7017}
   error:

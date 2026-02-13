@@ -1,8 +1,8 @@
 package com.backend.inventory.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -12,9 +12,8 @@ import java.util.UUID;
 @Table(name = "inventory_items")
 public class InventoryItem {
 
-    @Id
-    @Column(name = "product_id", columnDefinition = "char(36)")
-    private UUID productId;
+    @EmbeddedId
+    private InventoryItemId id;
 
     @Column(name = "on_hand", nullable = false)
     private int onHand;
@@ -28,19 +27,27 @@ public class InventoryItem {
     public InventoryItem() {
     }
 
-    public InventoryItem(UUID productId, int onHand, int reserved) {
-        this.productId = productId;
+    public InventoryItem(UUID branchId, UUID productId, int onHand, int reserved) {
+        this.id = new InventoryItemId(branchId, productId);
         this.onHand = onHand;
         this.reserved = reserved;
         this.updatedAt = Instant.now();
     }
 
-    public UUID getProductId() {
-        return productId;
+    public InventoryItemId getId() {
+        return id;
     }
 
-    public void setProductId(UUID productId) {
-        this.productId = productId;
+    public void setId(InventoryItemId id) {
+        this.id = id;
+    }
+
+    public UUID getProductId() {
+        return id == null ? null : id.getProductId();
+    }
+
+    public UUID getBranchId() {
+        return id == null ? null : id.getBranchId();
     }
 
     public int getOnHand() {

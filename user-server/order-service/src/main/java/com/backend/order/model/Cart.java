@@ -8,15 +8,23 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 @Entity
 @Table(name = "carts")
 public class Cart {
     @Id
-    @Column(name = "user_id", columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "user_id", length = 36)
     private UUID userId;
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "branch_id", length = 36)
+    private UUID branchId;
 
     public Cart() {
     }
@@ -40,5 +48,13 @@ public class Cart {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
     }
 }

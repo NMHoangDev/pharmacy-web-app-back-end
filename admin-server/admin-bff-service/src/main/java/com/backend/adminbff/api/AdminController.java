@@ -1,10 +1,14 @@
 package com.backend.adminbff.api;
 
+import com.backend.adminbff.client.AdminOrderClient;
 import com.backend.adminbff.client.AdminUserClient;
+import com.backend.adminbff.dto.AdminOrderResponse;
 import com.backend.adminbff.dto.AdminUserProfile;
 import com.backend.adminbff.dto.UpsertAdminUserRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -17,10 +21,14 @@ import java.util.UUID;
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    private final AdminUserClient adminUserClient;
+    private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
-    public AdminController(AdminUserClient adminUserClient) {
+    private final AdminUserClient adminUserClient;
+    private final AdminOrderClient adminOrderClient;
+
+    public AdminController(AdminUserClient adminUserClient, AdminOrderClient adminOrderClient) {
         this.adminUserClient = adminUserClient;
+        this.adminOrderClient = adminOrderClient;
     }
 
     @GetMapping("/ping")
@@ -118,24 +126,35 @@ public class AdminController {
             @RequestParam(required = false) UUID userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity
-                .ok(Map.of("status", status, "userId", userId, "page", page, "size", size, "items", List.of()));
+        logger.info("Admin listOrders status={} userId={} page={} size={}", status, userId, page, size);
+        List<AdminOrderResponse> items = adminOrderClient.listOrders(status, userId);
+
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("status", status);
+        response.put("userId", userId);
+        response.put("page", page);
+        response.put("size", size);
+        response.put("items", items);
+        response.put("total", items.size());
+
+        logger.info("Admin listOrders result count={}", items.size());
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/orders/{id}")
-    public ResponseEntity<Map<String, Object>> getOrder(@PathVariable UUID id) {
-        return ResponseEntity.ok(Map.of("id", id, "items", List.of()));
+    public ResponseEntity<AdminOrderResponse> getOrder(@PathVariable UUID id) {
+        return ResponseEntity.ok(adminOrderClient.getOrder(id));
     }
 
     @PostMapping("/orders/{id}/cancel")
-    public ResponseEntity<Map<String, Object>> cancelOrder(@PathVariable UUID id) {
-        return ResponseEntity.ok(Map.of("id", id, "status", "CANCEL_REQUESTED"));
+    public ResponseEntity<AdminOrderResponse> cancelOrder(@PathVariable UUID id) {
+        return ResponseEntity.ok(adminOrderClient.cancelOrder(id));
     }
 
     @PostMapping("/orders/{id}/status")
-    public ResponseEntity<Map<String, Object>> updateOrderStatus(@PathVariable UUID id,
+    public ResponseEntity<AdminOrderResponse> updateOrderStatus(@PathVariable UUID id,
             @RequestParam String status) {
-        return ResponseEntity.ok(Map.of("id", id, "status", status));
+        return ResponseEntity.ok(adminOrderClient.updateStatus(id, status));
     }
 
     // Inventory

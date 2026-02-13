@@ -23,9 +23,13 @@ public class JwtService {
     private final String issuer;
 
     public JwtService(
-            @Value("${identity.jwt.secret}") String secret,
-            @Value("${identity.jwt.expires-minutes:60}") long expirationMinutes,
-            @Value("${identity.jwt.issuer:http://localhost:7015}") String issuer) {
+            @Value("${identity.jwt.secret:${IDENTITY_JWT_SECRET:dev-secret-change-me}}") String secret,
+            @Value("${identity.jwt.expires-minutes:${IDENTITY_JWT_EXPIRES:60}}") long expirationMinutes,
+            @Value("${identity.jwt.issuer:${IDENTITY_JWT_ISSUER:http://localhost:7070}}") String issuer) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException(
+                    "JWT secret cannot be empty. Please set IDENTITY_JWT_SECRET environment variable.");
+        }
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMinutes = expirationMinutes;
         this.issuer = issuer;

@@ -1,17 +1,22 @@
 package com.backend.appointment.api.dto;
 
-import com.backend.appointment.model.Channel;
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Future;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Appointment request for booking.
+ */
 public record AppointmentRequest(
-        @NotNull UUID userId,
-        @NotNull UUID pharmacistId,
-        @NotNull @Future LocalDateTime startAt,
-        @NotNull @Future LocalDateTime endAt,
-        Channel channel,
-        String notes) {
+                // optional when booking as guest; if provided ties appointment to user
+                UUID userId,
+                @NotNull UUID pharmacistId,
+                UUID branchId,
+                @NotNull @Future LocalDateTime startAt,
+                @NotNull @Future LocalDateTime endAt,
+                // optional channel and notes
+                com.backend.appointment.model.Channel channel,
+                String notes) {
 }

@@ -1,11 +1,17 @@
 package com.backend.catalog.service;
 
+import com.backend.catalog.api.dto.BranchSettingRequest;
 import com.backend.catalog.api.dto.CategoryRequest;
+import com.backend.catalog.api.dto.DrugAdminDto;
+import com.backend.catalog.api.dto.DrugPublicDto;
 import com.backend.catalog.api.dto.DrugRequest;
 import com.backend.catalog.model.Category;
 import com.backend.catalog.model.Drug;
+import com.backend.catalog.model.DrugBranchSetting;
 import com.backend.catalog.repo.CategoryRepository;
+import com.backend.catalog.repo.DrugBranchSettingRepository;
 import com.backend.catalog.repo.DrugRepository;
+import com.backend.catalog.repo.DrugWithBranchView;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,8 +19,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -22,10 +30,15 @@ import java.util.UUID;
 public class CatalogService {
     private final CategoryRepository categoryRepository;
     private final DrugRepository drugRepository;
+    private final DrugBranchSettingRepository drugBranchSettingRepository;
 
-    public CatalogService(CategoryRepository categoryRepository, DrugRepository drugRepository) {
+    private static final UUID DEFAULT_BRANCH_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
+
+    public CatalogService(CategoryRepository categoryRepository, DrugRepository drugRepository,
+            DrugBranchSettingRepository drugBranchSettingRepository) {
         this.categoryRepository = categoryRepository;
         this.drugRepository = drugRepository;
+        this.drugBranchSettingRepository = drugBranchSettingRepository;
     }
 
     // Public queries
@@ -33,22 +46,54 @@ public class CatalogService {
         return categoryRepository.findByActiveTrueOrderBySortOrderAscNameAsc();
     }
 
-    public Page<Drug> searchPublicProducts(String q, UUID categoryId, Pageable pageable) {
-        return drugRepository.searchActive(q == null || q.isBlank() ? null : q.trim(), categoryId, pageable);
+    public Page<DrugPublicDto> searchPublicProducts(String q, UUID categoryId, UUID branchId, Pageable pageable) {
+        String keyword = normalizeKeyword(q);
+        UUID resolvedBranchId = resolveBranchId(branchId);
+        return drugRepository.searchPublicByBranch(keyword, categoryId, resolvedBranchId, pageable)
+                .map(view -> toPublicDto(view, resolvedBranchId));
     }
 
-    public Page<Drug> searchProducts(String q, UUID categoryId, String status, Pageable pageable) {
-        String keyword = q == null || q.isBlank() ? null : q.trim();
-        String normalizedStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase();
-        return drugRepository.searchAll(keyword, categoryId, normalizedStatus, pageable);
+    public Page<DrugAdminDto> searchProducts(String q, UUID categoryId, String status, UUID branchId,
+            Pageable pageable) {
+        String keyword = normalizeKeyword(q);
+        String normalizedStatus = normalizeStatus(status);
+        UUID resolvedBranchId = resolveBranchId(branchId);
+        return drugRepository.searchAdminByBranch(keyword, categoryId, normalizedStatus, resolvedBranchId, pageable)
+                .map(view -> toAdminDto(view, resolvedBranchId));
     }
 
-    public Drug getPublicProduct(String idOrSlug) {
+    public DrugPublicDto getPublicProduct(String idOrSlug, UUID branchId) {
+        UUID resolvedBranchId = resolveBranchId(branchId);
+        DrugWithBranchView view = findWithBranchByIdOrSlug(idOrSlug, resolvedBranchId);
+        String effectiveStatus = resolveEffectiveStatus(view);
+        if (!"ACTIVE".equalsIgnoreCase(effectiveStatus)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại");
+        }
+        return toPublicDto(view, resolvedBranchId);
+    }
+
+    public DrugAdminDto getDrug(UUID id, UUID branchId) {
+        UUID resolvedBranchId = resolveBranchId(branchId);
+        DrugWithBranchView view = drugRepository
+                .findWithBranchById(Objects.requireNonNull(id, "id"), resolvedBranchId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
+        return toAdminDto(view, resolvedBranchId);
+    }
+
+    public DrugAdminDto getDrugByIdOrSlug(String idOrSlug, UUID branchId) {
+        UUID resolvedBranchId = resolveBranchId(branchId);
+        DrugWithBranchView view = findWithBranchByIdOrSlug(idOrSlug, resolvedBranchId);
+        return toAdminDto(view, resolvedBranchId);
+    }
+
+    private DrugWithBranchView findWithBranchByIdOrSlug(String idOrSlug, UUID branchId) {
         try {
             UUID id = UUID.fromString(idOrSlug);
-            return drugRepository.findById(id).orElseThrow();
+            return drugRepository.findWithBranchById(id, branchId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
         } catch (IllegalArgumentException ex) {
-            return drugRepository.findBySlug(idOrSlug).orElseThrow();
+            return drugRepository.findWithBranchBySlug(idOrSlug, branchId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
         }
     }
 
@@ -86,11 +131,11 @@ public class CatalogService {
     }
 
     public Category getCategory(UUID id) {
-        return categoryRepository.findById(id).orElseThrow();
+        return categoryRepository.findById(Objects.requireNonNull(id, "id")).orElseThrow();
     }
 
     public Category updateCategory(UUID id, CategoryRequest req) {
-        Category c = categoryRepository.findById(id).orElseThrow();
+        Category c = categoryRepository.findById(Objects.requireNonNull(id, "id")).orElseThrow();
         String name = req.name() == null ? "" : req.name().trim();
         String slug = req.slug() == null ? "" : req.slug().trim().toLowerCase();
         if (name.isBlank()) {
@@ -108,7 +153,8 @@ public class CatalogService {
         if (parentId != null && parentId.equals(id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Danh mục cha không hợp lệ");
         }
-        if (parentId != null && !categoryRepository.existsById(parentId)) {
+        if (parentId != null
+                && !categoryRepository.existsById(Objects.requireNonNull(parentId, "parentId"))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Danh mục cha không tồn tại");
         }
         c.setName(name);
@@ -121,20 +167,30 @@ public class CatalogService {
     }
 
     public void deleteCategory(UUID id) {
-        if (categoryRepository.existsByParentId(id)) {
+        UUID safeId = Objects.requireNonNull(id, "id");
+        if (categoryRepository.existsByParentId(safeId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Danh mục có danh mục con, không thể xóa");
         }
-        categoryRepository.deleteById(id);
+        categoryRepository.deleteById(safeId);
     }
 
     // Drug
-    public Drug createDrug(DrugRequest req) {
-        if (req.categoryId() == null || !categoryRepository.existsById(req.categoryId())) {
+    public DrugAdminDto createDrug(DrugRequest req) {
+        if (req.categoryId() == null
+                || !categoryRepository.existsById(Objects.requireNonNull(req.categoryId(), "categoryId"))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Danh mục không tồn tại");
         }
-        if (req.price() == null) {
+        if (req.costPrice() == null || req.salePrice() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá không hợp lệ");
         }
+        if (req.costPrice().signum() < 0 || req.salePrice().signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá không hợp lệ");
+        }
+        String normalizedStatus = normalizeStatus(req.status());
+        if (normalizedStatus == null) {
+            normalizedStatus = "INACTIVE";
+        }
+        validateStatus(normalizedStatus);
         String slug = req.slug() == null ? "" : req.slug().trim().toLowerCase();
         if (slug.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug thuốc không hợp lệ");
@@ -148,33 +204,42 @@ public class CatalogService {
         d.setName(req.name());
         d.setSlug(slug);
         d.setCategoryId(req.categoryId());
-        d.setPrice(req.price());
-        d.setStatus(req.status() == null ? "INACTIVE" : req.status().trim().toUpperCase());
+        d.setCostPrice(req.costPrice());
+        d.setSalePrice(req.salePrice());
+        d.setPrice(req.salePrice());
+        d.setStatus(normalizedStatus);
         d.setPrescriptionRequired(req.prescriptionRequired() != null && req.prescriptionRequired());
         d.setDescription(req.description());
         d.setImageUrl(req.imageUrl());
         d.setAttributes(req.attributes());
         d.setCreatedAt(Instant.now());
         d.setUpdatedAt(Instant.now());
-        return drugRepository.save(d);
+        Drug saved = drugRepository.save(d);
+        return toAdminDto(saved, DEFAULT_BRANCH_ID);
     }
 
     public List<Drug> listDrugs() {
         return drugRepository.findAll();
     }
 
-    public Drug getDrug(UUID id) {
-        return drugRepository.findById(id).orElseThrow();
-    }
-
-    public Drug updateDrug(UUID id, DrugRequest req) {
-        Drug d = drugRepository.findById(id).orElseThrow();
-        if (req.categoryId() == null || !categoryRepository.existsById(req.categoryId())) {
+    public DrugAdminDto updateDrug(UUID id, DrugRequest req) {
+        Drug d = drugRepository.findById(Objects.requireNonNull(id, "id"))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
+        if (req.categoryId() == null
+                || !categoryRepository.existsById(Objects.requireNonNull(req.categoryId(), "categoryId"))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Danh mục không tồn tại");
         }
-        if (req.price() == null) {
+        if (req.costPrice() == null || req.salePrice() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá không hợp lệ");
         }
+        if (req.costPrice().signum() < 0 || req.salePrice().signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá không hợp lệ");
+        }
+        String normalizedStatus = normalizeStatus(req.status());
+        if (normalizedStatus == null) {
+            normalizedStatus = "INACTIVE";
+        }
+        validateStatus(normalizedStatus);
         String slug = req.slug() == null ? "" : req.slug().trim().toLowerCase();
         if (slug.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug thuốc không hợp lệ");
@@ -188,17 +253,112 @@ public class CatalogService {
         d.setName(req.name());
         d.setSlug(slug);
         d.setCategoryId(req.categoryId());
-        d.setPrice(req.price());
-        d.setStatus(req.status() == null ? "INACTIVE" : req.status().trim().toUpperCase());
+        d.setCostPrice(req.costPrice());
+        d.setSalePrice(req.salePrice());
+        d.setPrice(req.salePrice());
+        d.setStatus(normalizedStatus);
         d.setPrescriptionRequired(req.prescriptionRequired() != null && req.prescriptionRequired());
         d.setDescription(req.description());
         d.setImageUrl(req.imageUrl());
         d.setAttributes(req.attributes());
         d.setUpdatedAt(Instant.now());
-        return drugRepository.save(d);
+        Drug saved = drugRepository.save(d);
+        return toAdminDto(saved, DEFAULT_BRANCH_ID);
     }
 
     public void deleteDrug(UUID id) {
-        drugRepository.deleteById(id);
+        drugRepository.deleteById(Objects.requireNonNull(id, "id"));
+    }
+
+    public DrugAdminDto upsertBranchSetting(UUID drugId, BranchSettingRequest req) {
+        if (req == null || req.branchId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chi nhánh không hợp lệ");
+        }
+        if (!drugRepository.existsById(Objects.requireNonNull(drugId, "drugId"))) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại");
+        }
+        String nextStatus = normalizeStatus(req.status());
+        if (nextStatus == null) {
+            nextStatus = "ACTIVE";
+        }
+        validateStatus(nextStatus);
+        DrugBranchSetting setting = drugBranchSettingRepository.findByDrugIdAndBranchId(drugId, req.branchId())
+                .orElseGet(() -> {
+                    DrugBranchSetting s = new DrugBranchSetting();
+                    s.setId(UUID.randomUUID());
+                    s.setDrugId(drugId);
+                    s.setBranchId(req.branchId());
+                    s.setCreatedAt(Instant.now());
+                    return s;
+                });
+        setting.setPriceOverride(req.priceOverride());
+        setting.setStatus(nextStatus);
+        setting.setNote(req.note());
+        setting.setUpdatedAt(Instant.now());
+        drugBranchSettingRepository.save(setting);
+        return getDrug(drugId, req.branchId());
+    }
+
+    public void deleteBranchSetting(UUID drugId, UUID branchId) {
+        if (branchId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chi nhánh không hợp lệ");
+        }
+        drugBranchSettingRepository.findByDrugIdAndBranchId(drugId, branchId)
+                .ifPresent(drugBranchSettingRepository::delete);
+    }
+
+    private String normalizeKeyword(String q) {
+        return q == null || q.isBlank() ? null : q.trim();
+    }
+
+    private String normalizeStatus(String status) {
+        return status == null || status.isBlank() ? null : status.trim().toUpperCase();
+    }
+
+    private UUID resolveBranchId(UUID branchId) {
+        return branchId == null ? DEFAULT_BRANCH_ID : branchId;
+    }
+
+    private String resolveEffectiveStatus(DrugWithBranchView view) {
+        if (view.getBranchStatus() != null && !view.getBranchStatus().isBlank()) {
+            return view.getBranchStatus();
+        }
+        return view.getGlobalStatus();
+    }
+
+    private BigDecimal resolveEffectivePrice(DrugWithBranchView view) {
+        return view.getPriceOverride() != null ? view.getPriceOverride() : view.getBaseSalePrice();
+    }
+
+    private void validateStatus(String status) {
+        if (!"ACTIVE".equalsIgnoreCase(status) && !"INACTIVE".equalsIgnoreCase(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái không hợp lệ");
+        }
+    }
+
+    private DrugPublicDto toPublicDto(DrugWithBranchView view, UUID branchId) {
+        BigDecimal effectivePrice = resolveEffectivePrice(view);
+        String effectiveStatus = resolveEffectiveStatus(view);
+        return new DrugPublicDto(view.getId(), view.getSku(), view.getName(), view.getSlug(), view.getCategoryId(),
+                effectivePrice, effectiveStatus, view.isPrescriptionRequired(), view.getDescription(),
+                view.getImageUrl(), view.getAttributes());
+    }
+
+    private DrugAdminDto toAdminDto(DrugWithBranchView view, UUID branchId) {
+        BigDecimal effectivePrice = resolveEffectivePrice(view);
+        String effectiveStatus = resolveEffectiveStatus(view);
+        return new DrugAdminDto(view.getId(), view.getSku(), view.getName(), view.getSlug(), view.getCategoryId(),
+                view.getCostPrice(), view.getBaseSalePrice(), view.getPriceOverride(), effectivePrice,
+                view.getGlobalStatus(),
+                view.getBranchStatus(), effectiveStatus, view.isPrescriptionRequired(), view.getDescription(),
+                view.getImageUrl(), view.getAttributes(), branchId, view.getNote());
+    }
+
+    private DrugAdminDto toAdminDto(Drug drug, UUID branchId) {
+        BigDecimal baseSalePrice = drug.getSalePrice();
+        return new DrugAdminDto(drug.getId(), drug.getSku(), drug.getName(), drug.getSlug(), drug.getCategoryId(),
+                drug.getCostPrice(), baseSalePrice, null, baseSalePrice, drug.getStatus(), null, drug.getStatus(),
+                drug.isPrescriptionRequired(), drug.getDescription(), drug.getImageUrl(), drug.getAttributes(),
+                branchId, null);
     }
 }

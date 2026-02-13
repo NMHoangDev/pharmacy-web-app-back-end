@@ -42,26 +42,28 @@ echo Waiting 15s for docker services to initialize...
 timeout /t 15 /nobreak >nul
 
 REM Gateway (port configured in gateway/src/main/resources/application.yml)
-start "gateway" cmd /k "mvn -DskipTests -pl gateway clean spring-boot:run"
+start "gateway" cmd /k "cd /d "%ROOT%gateway" && mvn -DskipTests clean spring-boot:run"
 
 REM User-facing services
-start "identity-service" cmd /k "mvn -DskipTests -pl user-server/identity-service clean spring-boot:run"
-start "user-service" cmd /k "mvn -DskipTests -pl user-server/user-service clean spring-boot:run"
-start "catalog-service" cmd /k "mvn -DskipTests -pl user-server/catalog-service clean spring-boot:run"
-start "inventory-service" cmd /k "mvn -DskipTests -pl user-server/inventory-service clean spring-boot:run"
-start "order-service" cmd /k "mvn -DskipTests -pl user-server/order-service clean spring-boot:run"
-start "payment-service" cmd /k "mvn -DskipTests -pl user-server/payment-service clean spring-boot:run"
-start "media-service" cmd /k "mvn -DskipTests -pl user-server/media-service clean spring-boot:run"
-start "notification-service" cmd /k "mvn -DskipTests -pl user-server/notification-service clean spring-boot:run"
-start "review-service" cmd /k "mvn -DskipTests -pl user-server/review-service clean spring-boot:run"
-start "appointment-service" cmd /k "mvn -DskipTests -pl user-server/appointment-service clean spring-boot:run"
+start "identity-service" cmd /k "cd /d "%ROOT%user-server\identity-service" && mvn -DskipTests clean spring-boot:run"
+start "user-service" cmd /k "cd /d "%ROOT%user-server\user-service" && mvn -DskipTests clean spring-boot:run"
+start "catalog-service" cmd /k "cd /d "%ROOT%user-server\catalog-service" && mvn -DskipTests clean spring-boot:run"
+start "inventory-service" cmd /k "cd /d "%ROOT%user-server\inventory-service" && mvn -DskipTests clean spring-boot:run"
+start "order-service" cmd /k "cd /d "%ROOT%user-server\order-service" && mvn -DskipTests clean spring-boot:run"
+start "cart-service" cmd /k "cd /d "%ROOT%user-server\cart-service" && mvn -DskipTests clean spring-boot:run"
+start "payment-service" cmd /k "cd /d "%ROOT%user-server\payment-service" && mvn -DskipTests clean spring-boot:run"
+start "media-service" cmd /k "cd /d "%ROOT%user-server\media-service" && mvn -DskipTests clean spring-boot:run"
+start "notification-service" cmd /k "cd /d "%ROOT%user-server\notification-service" && mvn -DskipTests clean spring-boot:run"
+start "review-service" cmd /k "cd /d "%ROOT%user-server\review-service" && mvn -DskipTests clean spring-boot:run"
+start "appointment-service" cmd /k "cd /d "%ROOT%user-server\appointment-service" && mvn -DskipTests clean spring-boot:run"
+start "pharmacist-service" cmd /k "cd /d "%ROOT%user-server\pharmacist-service" && mvn -DskipTests clean spring-boot:run"
 
 REM Admin services
-start "admin-bff" cmd /k "mvn -DskipTests -pl admin-server/admin-bff-service clean spring-boot:run"
-start "cms-service" cmd /k "mvn -DskipTests -pl admin-server/cms-service clean spring-boot:run"
-start "reporting-service" cmd /k "mvn -DskipTests -pl admin-server/reporting-service clean spring-boot:run"
-start "audit-service" cmd /k "mvn -DskipTests -pl admin-server/audit-service clean spring-boot:run"
-start "settings-service" cmd /k "mvn -DskipTests -pl admin-server/settings-service clean spring-boot:run"
+start "admin-bff" cmd /k "cd /d "%ROOT%admin-server\admin-bff-service" && mvn -DskipTests clean spring-boot:run"
+start "cms-service" cmd /k "cd /d "%ROOT%admin-server\cms-service" && mvn -DskipTests clean spring-boot:run"
+start "reporting-service" cmd /k "cd /d "%ROOT%admin-server\reporting-service" && mvn -DskipTests clean spring-boot:run"
+start "audit-service" cmd /k "cd /d "%ROOT%admin-server\audit-service" && mvn -DskipTests clean spring-boot:run"
+start "settings-service" cmd /k "cd /d "%ROOT%admin-server\settings-service" && mvn -DskipTests clean spring-boot:run"
 
 popd
 endlocal

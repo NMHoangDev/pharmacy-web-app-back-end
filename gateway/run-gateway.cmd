@@ -10,12 +10,12 @@ if exist "%IDENTITY_ENV%" (
     )
   )
 ) else (
-  echo Warning: %IDENTITY_ENV% not found. Will use default port 8081 for identity.
+  echo Warning: %IDENTITY_ENV% not found. Will use default port 7070 for identity.
 )
 if defined SERVER_PORT (
   set "SERVICES_AUTH_URI=http://localhost:%SERVER_PORT%"
 ) else (
-  set "SERVICES_AUTH_URI=http://localhost:8081"
+  set "SERVICES_AUTH_URI=http://localhost:7070"
 )
 echo Starting gateway forwarding /api/auth/** to %SERVICES_AUTH_URI% ...
 mvn spring-boot:run -Dspring-boot.run.arguments="--services.auth.uri=%SERVICES_AUTH_URI%"

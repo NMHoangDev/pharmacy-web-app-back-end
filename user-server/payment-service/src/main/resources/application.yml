@@ -2,17 +2,35 @@ spring:
   application:
     name: payment-service
   datasource:
-    url: jdbc:postgresql://<host>:5432/payment_db
-    username: <user>
-    password: <password>
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/payment_db}
+    username: ${DATABASE_USER:postgres}
+    password: ${DATABASE_PASS:postgres}
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+ 
 server:
   port: ${SERVER_PORT:7020}
+ 
+payment:
+  vnpay:
+    tmn-code: ${VNP_TMN_CODE:QC6ST9D7}
+    hash-secret: ${VNP_HASH_SECRET:YOCVUYXFOGXFQUZXJFXTXKXKXKXKXKXK}
+    url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  zalopay:
+    app-id: ${ZLP_APP_ID:553}
+    key1: ${ZLP_KEY1:9ph31993439}
+    key2: ${ZLP_KEY2:Iyz2habByr7S9uE67zH9G8X5rUf2jQu}
+    endpoint: https://sb-openapi.zalopay.vn/v2/create
+ 
 management:
   endpoints:
     web:

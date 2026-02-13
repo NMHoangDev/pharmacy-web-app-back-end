@@ -2,6 +2,8 @@ package com.backend.order.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -10,9 +12,11 @@ import java.util.UUID;
 @Embeddable
 public class OrderItemId implements Serializable {
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "order_id", columnDefinition = "char(36)")
     private UUID orderId;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "product_id", columnDefinition = "char(36)")
     private UUID productId;
 

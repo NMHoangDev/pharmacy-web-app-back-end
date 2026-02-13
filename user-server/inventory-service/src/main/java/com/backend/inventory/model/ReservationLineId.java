@@ -2,6 +2,8 @@ package com.backend.inventory.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -11,9 +13,11 @@ import java.util.UUID;
 public class ReservationLineId implements Serializable {
 
     @Column(name = "reservation_id", columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID reservationId;
 
     @Column(name = "product_id", columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID productId;
 
     public ReservationLineId() {

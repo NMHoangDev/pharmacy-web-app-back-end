@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
@@ -24,6 +25,11 @@ public class InMemoryUserRepository implements UserRepository {
     @Override
     public Optional<UserAccount> findByPhone(String phone) {
         return Optional.ofNullable(usersByPhone.get(normalize(phone)));
+    }
+
+    @Override
+    public Optional<UserAccount> findById(UUID id) {
+        return usersByEmail.values().stream().filter(u -> u.id().equals(id)).findFirst();
     }
 
     @Override
@@ -46,6 +52,16 @@ public class InMemoryUserRepository implements UserRepository {
         }
 
         return account;
+    }
+
+    @Override
+    public void updatePassword(UUID id, String passwordHash) {
+        usersByEmail.replaceAll((k, v) -> v.id().equals(id)
+                ? new UserAccount(v.id(), v.email(), v.phone(), passwordHash, v.fullName(), v.roles())
+                : v);
+        usersByPhone.replaceAll((k, v) -> v.id().equals(id)
+                ? new UserAccount(v.id(), v.email(), v.phone(), passwordHash, v.fullName(), v.roles())
+                : v);
     }
 
     private String normalize(String v) {
