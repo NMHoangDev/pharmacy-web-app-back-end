@@ -1,0 +1,25 @@
+.git
+.gitignore
+.vscode
+.idea
+
+# Frontend and unrelated folders are not needed to build backend services
+front-end/
+infra/keycloak/
+AI/
+AI-/
+customer-churn-prediction/
+mobile-app/
+search-ml-service/
+
+# Build outputs and caches
+**/target/
+**/.mvn/
+**/node_modules/
+**/.gradle/
+**/*.log
+**/logs/
+
+# OS/editor noise
+**/.DS_Store
+**/Thumbs.db

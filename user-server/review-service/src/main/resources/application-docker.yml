@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: review-service
+  datasource:
+    url: jdbc:mysql://${REVIEW_DB_HOST:mysql}:${REVIEW_DB_PORT:3306}/review_db
+    username: ${REVIEW_DB_USER:root}
+    password: ${REVIEW_DB_PASS:160525}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
+server:
+  port: 7023
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true

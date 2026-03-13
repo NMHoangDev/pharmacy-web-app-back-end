@@ -153,8 +153,13 @@ public class OrderService {
 
                 // TODO: call inventory reserve; here we just assume success
 
-                // Outbox OrderCreated (payload as simple json string)
-                String payload = "{\"orderId\":\"" + orderId + "\",\"status\":\"PENDING_PAYMENT\"}";
+                String payload = String.format(
+                                "{\"orderId\":\"%s\",\"userId\":\"%s\",\"status\":\"%s\",\"totalAmount\":%s,\"paymentMethod\":\"%s\"}",
+                                orderId,
+                                order.getUserId(),
+                                order.getStatus(),
+                                order.getTotalAmount(),
+                                order.getPaymentMethod());
                 outboxRepository.save(new OutboxEvent(UUID.randomUUID(), "OrderCreated", payload, "NEW"));
 
                 return new CheckoutResponse(orderId, order.getStatus().name());
@@ -173,7 +178,14 @@ public class OrderService {
                 paymentRepository.save(new Payment(UUID.randomUUID(), order.getId(), req.provider(), PaymentStatus.PAID,
                                 req.amount(), req.transactionRef()));
 
-                String payload = "{\"orderId\":\"" + order.getId() + "\",\"status\":\"CONFIRMED\"}";
+                String payload = String.format(
+                                "{\"orderId\":\"%s\",\"userId\":\"%s\",\"status\":\"%s\",\"totalAmount\":%s,\"paymentMethod\":\"%s\",\"paymentStatus\":\"%s\"}",
+                                order.getId(),
+                                order.getUserId(),
+                                order.getStatus(),
+                                order.getTotalAmount(),
+                                order.getPaymentMethod(),
+                                order.getPaymentStatus());
                 outboxRepository.save(new OutboxEvent(UUID.randomUUID(), "OrderPaid", payload, "NEW"));
 
                 return new CheckoutResponse(order.getId(), order.getStatus().name());

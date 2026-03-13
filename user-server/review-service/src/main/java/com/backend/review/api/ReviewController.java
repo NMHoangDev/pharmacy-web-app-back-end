@@ -2,10 +2,15 @@ package com.backend.review.api;
 
 import com.backend.review.api.dto.ReviewRequest;
 import com.backend.review.api.dto.ReviewResponse;
+import com.backend.review.api.dto.ReviewAdminStatsResponse;
+import com.backend.review.api.dto.ReviewReplyRequest;
+import com.backend.review.api.dto.ReviewSummaryResponse;
 import com.backend.review.api.dto.ReviewStatusRequest;
 import com.backend.review.service.ReviewService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,6 +51,37 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.listByProduct(productId, page, size));
     }
 
+    @GetMapping("/product/{productId}/summary")
+    public ResponseEntity<ReviewSummaryResponse> summaryByProduct(@PathVariable UUID productId) {
+        return ResponseEntity.ok(reviewService.summaryByProduct(productId));
+    }
+
+    @GetMapping("/internal")
+    public ResponseEntity<Page<ReviewResponse>> listAdmin(@RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false, name = "q") String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(reviewService.listAdmin(status, rating, query, page, size));
+    }
+
+    @GetMapping("/internal/stats")
+    public ResponseEntity<ReviewAdminStatsResponse> getAdminStats() {
+        return ResponseEntity.ok(reviewService.getAdminStats());
+    }
+
+    @GetMapping("/internal/export")
+    public ResponseEntity<byte[]> exportAdmin(@RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false, name = "q") String query) {
+        byte[] data = reviewService.exportAdmin(status, rating, query);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=reviews-report.xlsx")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(data);
+    }
+
     @GetMapping("/internal/product/{productId}")
     public ResponseEntity<Page<ReviewResponse>> listByProductAdmin(@PathVariable UUID productId,
             @RequestParam(required = false) String status,
@@ -61,18 +97,24 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.listByUser(userId, page, size));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:[0-9a-fA-F\\-]{36}}")
     public ResponseEntity<ReviewResponse> update(@PathVariable UUID id, @RequestBody @Valid ReviewRequest req) {
         return ResponseEntity.ok(reviewService.update(id, req));
     }
 
-    @PutMapping("/internal/{id}/status")
+    @PutMapping("/internal/{id:[0-9a-fA-F\\-]{36}}/status")
     public ResponseEntity<ReviewResponse> updateStatus(@PathVariable UUID id,
             @RequestBody @Valid ReviewStatusRequest req) {
         return ResponseEntity.ok(reviewService.updateStatus(id, req.status()));
     }
 
-    @DeleteMapping("/{id}")
+    @PostMapping("/internal/{id:[0-9a-fA-F\\-]{36}}/reply")
+    public ResponseEntity<ReviewResponse> reply(@PathVariable UUID id,
+            @RequestBody @Valid ReviewReplyRequest req) {
+        return ResponseEntity.ok(reviewService.reply(id, req.content()));
+    }
+
+    @DeleteMapping("/{id:[0-9a-fA-F\\-]{36}}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         reviewService.delete(id);
         return ResponseEntity.noContent().build();

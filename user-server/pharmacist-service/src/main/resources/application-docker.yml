@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: pharmacist-service
+  datasource:
+    url: jdbc:mysql://${PHARMACIST_DB_HOST:mysql}:${PHARMACIST_DB_PORT:3306}/pharmacist_db
+    username: ${PHARMACIST_DB_USER:root}
+    password: ${PHARMACIST_DB_PASS:160525}
+
+server:
+  port: 7025
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+branch:
+  base-url: ${BRANCH_SERVICE_BASE_URL:http://branch-service:7030}
+
+pos:
+  catalog-service:
+    base-url: ${POS_CATALOG_SERVICE_BASE_URL:http://catalog-service:7017}
+  inventory-service:
+    base-url: ${POS_INVENTORY_SERVICE_BASE_URL:http://inventory-service:7018}

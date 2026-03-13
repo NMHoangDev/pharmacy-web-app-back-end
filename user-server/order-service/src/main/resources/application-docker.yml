@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:mysql://${ORDER_DB_HOST:mysql}:${ORDER_DB_PORT:3306}/order_db
+    username: ${ORDER_DB_USER:root}
+    password: ${ORDER_DB_PASS:160525}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
+server:
+  port: 7019
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+order:
+  branch-service:
+    base-url: ${BRANCH_SERVICE_URL:http://branch-service:7030}
+  inventory-service:
+    base-url: ${INVENTORY_SERVICE_URL:http://inventory-service:7018}

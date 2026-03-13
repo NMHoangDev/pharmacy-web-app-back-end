@@ -5,6 +5,7 @@ import com.backend.adminbff.client.AdminUserClient;
 import com.backend.adminbff.dto.AdminOrderResponse;
 import com.backend.adminbff.dto.AdminUserProfile;
 import com.backend.adminbff.dto.UpsertAdminUserRequest;
+import com.backend.adminbff.service.DashboardAnalyticsService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.slf4j.Logger;
@@ -25,10 +26,15 @@ public class AdminController {
 
     private final AdminUserClient adminUserClient;
     private final AdminOrderClient adminOrderClient;
+    private final DashboardAnalyticsService dashboardAnalyticsService;
 
-    public AdminController(AdminUserClient adminUserClient, AdminOrderClient adminOrderClient) {
+    public AdminController(
+            AdminUserClient adminUserClient,
+            AdminOrderClient adminOrderClient,
+            DashboardAnalyticsService dashboardAnalyticsService) {
         this.adminUserClient = adminUserClient;
         this.adminOrderClient = adminOrderClient;
+        this.dashboardAnalyticsService = dashboardAnalyticsService;
     }
 
     @GetMapping("/ping")
@@ -74,6 +80,13 @@ public class AdminController {
     }
 
     // Dashboard
+    @GetMapping("/dashboard/analytics")
+    public ResponseEntity<Map<String, Object>> dashboardAnalytics(
+            @RequestParam(defaultValue = "today") String range,
+            @RequestParam(required = false) UUID branchId) {
+        return ResponseEntity.ok(dashboardAnalyticsService.getAnalytics(range, branchId));
+    }
+
     @GetMapping("/dashboard/summary")
     public ResponseEntity<Map<String, Object>> dashboardSummary() {
         // Map.of supports up to 10 entries; Map.ofEntries keeps this response literal

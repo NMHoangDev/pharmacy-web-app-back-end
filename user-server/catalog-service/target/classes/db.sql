@@ -113,6 +113,17 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+-- Drop legacy price column now that data is in sale_price
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'price';
+SET @sql = IF(@exists = 1,
+        'ALTER TABLE drugs DROP COLUMN price',
+        'SELECT "price column already removed"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 SELECT COUNT(*) INTO @exists
         FROM information_schema.columns
  WHERE table_schema = @schema AND table_name = 'categories' AND column_name = 'parent_id';

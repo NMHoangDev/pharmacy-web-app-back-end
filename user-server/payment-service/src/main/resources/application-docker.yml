@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:mysql://${PAYMENT_DB_HOST:mysql}:${PAYMENT_DB_PORT:3306}/payment_db
+    username: ${PAYMENT_DB_USER:root}
+    password: ${PAYMENT_DB_PASS:160525}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
+server:
+  port: 7020
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true

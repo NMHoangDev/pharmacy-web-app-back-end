@@ -1,5 +1,8 @@
 package com.backend.content.service;
 
+import com.backend.common.messaging.EventTypes;
+import com.backend.common.messaging.TopicNames;
+import com.backend.common.model.EventEnvelope;
 import com.backend.content.api.dto.*;
 import com.backend.content.model.*;
 import com.backend.content.repo.PostImageRepository;
@@ -11,6 +14,7 @@ import com.backend.content.util.ExcerptUtils;
 import com.backend.content.util.SlugUtils;
 import com.backend.content.util.TocUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,19 +42,22 @@ public class PostService {
     private final PostImageRepository postImageRepository;
     private final ContentUserService userService;
     private final ObjectMapper objectMapper;
+    private final KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate;
 
     public PostService(PostRepository postRepository,
             TagRepository tagRepository,
             PostTagRepository postTagRepository,
             PostImageRepository postImageRepository,
             ContentUserService userService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate) {
         this.postRepository = postRepository;
         this.tagRepository = tagRepository;
         this.postTagRepository = postTagRepository;
         this.postImageRepository = postImageRepository;
         this.userService = userService;
         this.objectMapper = objectMapper;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     public PagedResponse<PostListItem> list(String q, String tag, String topic, String type, String level,
@@ -261,6 +268,7 @@ public class PostService {
         post.setPublishedAt(Instant.now());
         post.setUpdatedAt(Instant.now());
         postRepository.save(post);
+        publishContentEvent(post);
         return getBySlug(post.getSlug(), true);
     }
 
@@ -307,6 +315,23 @@ public class PostService {
         String plain = source.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
         int words = plain.isBlank() ? 0 : plain.split("\\s+").length;
         return Math.max(1, (int) Math.ceil(words / 200.0));
+    }
+
+    private void publishContentEvent(Post post) {
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("id", post.getId().toString());
+            payload.put("slug", post.getSlug());
+            payload.put("title", post.getTitle());
+            payload.put("type", post.getType());
+            payload.put("topic", post.getTopic());
+            payload.put("featured", post.isFeatured());
+            payload.put("publishedAt", post.getPublishedAt() == null ? null : post.getPublishedAt().toString());
+            kafkaTemplate.send(TopicNames.CMS_EVENTS, EventEnvelope.of(EventTypes.CMS_PUBLISHED, "1", payload));
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to publish content event", ex);
+        }
     }
 
     private String toLower(String input) {

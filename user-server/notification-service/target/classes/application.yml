@@ -1,8 +1,15 @@
 spring:
+  config:
+    import: optional:configserver:http://config-server:8888
   application:
     name: notification-service
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/notification_db
+    username: root
+    password: 160525
+    driver-class-name: com.mysql.cj.jdbc.Driver
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: notification-service
       auto-offset-reset: earliest
@@ -16,6 +23,22 @@ spring:
             value:
               default:
                 type: com.backend.common.model.EventEnvelope
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/pharmacy}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        type:
+          preferred_uuid_jdbc_type: CHAR
+  sql:
+    init:
+      mode: never
   mail:
     host: localhost
     port: 1025
@@ -33,7 +56,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,refresh,busrefresh
 notification:
   mail:
     to: test@example.com

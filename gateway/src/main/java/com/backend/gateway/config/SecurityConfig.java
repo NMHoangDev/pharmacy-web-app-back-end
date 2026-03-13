@@ -44,15 +44,23 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .pathMatchers(HttpMethod.GET, "/api/content/**")
                                                 .permitAll()
+                                                .pathMatchers(HttpMethod.GET, "/api/reviews/product/**",
+                                                                "/api/reviews/ping")
+                                                .permitAll()
                                                 .pathMatchers(HttpMethod.POST, "/api/content/posts/*/view")
                                                 .permitAll()
                                                 .pathMatchers(HttpMethod.OPTIONS).permitAll()
 
+                                                // ADMIN
+                                                .pathMatchers("/api/reviews/internal/**")
+                                                .hasRole("ADMIN")
+
                                                 // USER
                                                 .pathMatchers("/api/cart/**", "/api/orders/**", "/api/order/**",
-                                                                "/api/payments/**", "/api/appointments/**",
-                                                                "/api/appointments", "/api/reviews/**")
+                                                                "/api/payments/**", "/api/reviews/**")
                                                 .hasAnyRole("USER", "ADMIN")
+                                                .pathMatchers("/api/appointments/**", "/api/appointments")
+                                                .hasAnyRole("USER", "PHARMACIST", "ADMIN")
                                                 .pathMatchers("/api/users/me/**")
                                                 .hasAnyRole("USER", "PHARMACIST", "STAFF", "ADMIN")
                                                 .pathMatchers("/api/users/**").hasAnyRole("USER", "ADMIN")

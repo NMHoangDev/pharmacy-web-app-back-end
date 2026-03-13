@@ -206,7 +206,6 @@ public class CatalogService {
         d.setCategoryId(req.categoryId());
         d.setCostPrice(req.costPrice());
         d.setSalePrice(req.salePrice());
-        d.setPrice(req.salePrice());
         d.setStatus(normalizedStatus);
         d.setPrescriptionRequired(req.prescriptionRequired() != null && req.prescriptionRequired());
         d.setDescription(req.description());
@@ -255,7 +254,6 @@ public class CatalogService {
         d.setCategoryId(req.categoryId());
         d.setCostPrice(req.costPrice());
         d.setSalePrice(req.salePrice());
-        d.setPrice(req.salePrice());
         d.setStatus(normalizedStatus);
         d.setPrescriptionRequired(req.prescriptionRequired() != null && req.prescriptionRequired());
         d.setDescription(req.description());

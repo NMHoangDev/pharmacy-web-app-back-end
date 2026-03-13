@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: admin-bff-service
+
+server:
+  port: 7010
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+services:
+  user:
+    url: ${USER_SERVICE_URL:http://user-service:7016}
+  order:
+    url: ${ORDER_SERVICE_URL:http://order-service:7019}

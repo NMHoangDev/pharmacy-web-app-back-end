@@ -3,9 +3,12 @@ package com.backend.inventory.api;
 import com.backend.inventory.api.dto.*;
 import com.backend.inventory.model.StockDocumentStatus;
 import com.backend.inventory.model.StockDocumentType;
+import com.backend.inventory.service.InventoryReportService;
 import com.backend.inventory.service.StockDocumentService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,9 +20,12 @@ import java.util.UUID;
 public class InventoryAdminApi {
 
     private final StockDocumentService stockDocumentService;
+    private final InventoryReportService inventoryReportService;
 
-    public InventoryAdminApi(StockDocumentService stockDocumentService) {
+    public InventoryAdminApi(StockDocumentService stockDocumentService,
+            InventoryReportService inventoryReportService) {
         this.stockDocumentService = stockDocumentService;
+        this.inventoryReportService = inventoryReportService;
     }
 
     @PostMapping("/stock-documents")
@@ -64,5 +70,19 @@ public class InventoryAdminApi {
         int safeSize = size == null ? 20 : size;
         return ResponseEntity
                 .ok(stockDocumentService.list(type, status, branchId, from, to, keyword, safePage, safeSize));
+    }
+
+    @GetMapping("/reports/stock/export")
+    public ResponseEntity<byte[]> exportStockReport(@RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "categoryId", required = false) UUID categoryId,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "branchId") UUID branchId) {
+        InventoryReportService.ReportFile report = inventoryReportService.exportStockReport(q, categoryId, status,
+                branchId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + report.filename() + "\"")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(report.content());
     }
 }

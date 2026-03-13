@@ -1,6 +1,10 @@
 spring:
+  config:
+    import: optional:configserver:http://config-server:8888
   application:
     name: pharmacist-service
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/pharmacist_db
     username: root
@@ -22,10 +26,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,refresh,busrefresh
 logging:
   level:
     org.hibernate.SQL: WARN
 branch:
   base-url: ${BRANCH_SERVICE_BASE_URL:http://localhost:7030}
   staff-cache-ttl-seconds: ${BRANCH_STAFF_CACHE_TTL_SECONDS:60}
+pos:
+  catalog-service:
+    base-url: ${POS_CATALOG_SERVICE_BASE_URL:http://localhost:7017}
+  inventory-service:
+    base-url: ${POS_INVENTORY_SERVICE_BASE_URL:http://localhost:7018}
