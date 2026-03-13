@@ -1,115 +1,231 @@
 package com.backend.payment.service;
 
-import com.backend.payment.api.dto.PaymentInitiateRequest;
-import com.backend.payment.utils.PaymentUtils;
-import org.springframework.beans.factory.annotation.Value;
+import com.backend.payment.api.dto.VnpayCreateRequest;
+import com.backend.payment.api.dto.VnpayCreateResponse;
+import com.backend.payment.api.dto.VnpayIpnResponse;
+import com.backend.payment.config.VnpayProperties;
+import com.backend.payment.model.PaymentProvider;
+import com.backend.payment.model.PaymentStatus;
+import com.backend.payment.model.PaymentTransaction;
+import com.backend.payment.util.DateTimeUtil;
+import com.backend.payment.util.HmacUtil;
+import com.backend.payment.util.VnpayUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.Locale;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class VNPayService {
+    private static final ZoneId DEFAULT_ZONE_ID = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final int MAX_TXN_REF_RETRY = 10;
+    private static final int MIN_SUFFIX_DIGITS = 8;
+    private static final int MAX_SUFFIX_DIGITS = 10;
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private final VnpayProperties properties;
+    private final PaymentTransactionService transactionService;
+    private final KafkaEventPublisher eventPublisher;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${payment.vnpay.tmn-code:DEFAULT_TMN}")
-    private String tmnCode;
-
-    @Value("${payment.vnpay.hash-secret:DEFAULT_SECRET}")
-    private String hashSecret;
-
-    @Value("${payment.vnpay.url:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}")
-    private String vnpPayUrl;
-
-    public String createPaymentUrl(PaymentInitiateRequest request, String ipAddress) {
-        String vnp_Version = "2.1.0";
-        String vnp_Command = "pay";
-        String vnp_OrderInfo = request.orderInfo() != null ? request.orderInfo()
-                : "Payment for order " + request.orderId();
-        String orderType = "other";
-        String vnp_TxnRef = request.orderId() + "_" + System.currentTimeMillis();
-        String vnp_IpAddr = ipAddress;
-        String vnp_TmnCode = tmnCode;
-
-        long amount = (long) (request.amount() * 100);
-        Map<String, String> vnp_Params = new HashMap<>();
-        vnp_Params.put("vnp_Version", vnp_Version);
-        vnp_Params.put("vnp_Command", vnp_Command);
-        vnp_Params.put("vnp_TmnCode", vnp_TmnCode);
-        vnp_Params.put("vnp_Amount", String.valueOf(amount));
-        vnp_Params.put("vnp_CurrCode", "VND");
-        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
-        vnp_Params.put("vnp_OrderInfo", vnp_OrderInfo);
-        vnp_Params.put("vnp_OrderType", orderType);
-        vnp_Params.put("vnp_Locale", "vn");
-        vnp_Params.put("vnp_ReturnUrl", request.returnUrl());
-        vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
-
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        String vnp_CreateDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
-
-        cld.add(Calendar.MINUTE, 15);
-        String vnp_ExpireDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
-
-        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
-        Collections.sort(fieldNames);
-
-        StringBuilder hashData = new StringBuilder();
-        StringBuilder query = new StringBuilder();
-        Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = itr.next();
-            String fieldValue = vnp_Params.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                // Build hash data
-                hashData.append(fieldName);
-                hashData.append('=');
-                hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-                // Build query
-                query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII));
-                query.append('=');
-                query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-                if (itr.hasNext()) {
-                    query.append('&');
-                    hashData.append('&');
-                }
-            }
-        }
-
-        String queryUrl = query.toString();
-        String vnp_SecureHash = PaymentUtils.hmacSHA512(hashSecret, hashData.toString());
-        queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
-
-        return vnpPayUrl + "?" + queryUrl;
+    public VNPayService(VnpayProperties properties,
+            PaymentTransactionService transactionService,
+            KafkaEventPublisher eventPublisher) {
+        this.properties = properties;
+        this.transactionService = transactionService;
+        this.eventPublisher = eventPublisher;
     }
 
-    public boolean verifyIpn(Map<String, String> params) {
-        String vnp_SecureHash = params.get("vnp_SecureHash");
-        params.remove("vnp_SecureHash");
-        params.remove("vnp_SecureHashType");
+    public VnpayCreateResponse createPaymentUrl(VnpayCreateRequest request, String ipAddress) {
+        String txnRef = generateTxnRef();
+        ZoneId zoneId = resolveZoneId();
+        String orderInfo = VnpayUtil.sanitizeOrderInfo(request.orderInfo());
+        String normalizedIp = normalizeIp(ipAddress);
 
-        List<String> fieldNames = new ArrayList<>(params.keySet());
-        Collections.sort(fieldNames);
-        StringBuilder hashData = new StringBuilder();
-        Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = itr.next();
-            String fieldValue = params.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                hashData.append(fieldName);
-                hashData.append('=');
-                hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-                if (itr.hasNext()) {
-                    hashData.append('&');
-                }
-            }
+        Map<String, String> vnpParams = new HashMap<>();
+        vnpParams.put("vnp_Version", properties.getVersion());
+        vnpParams.put("vnp_Command", properties.getCommand());
+        vnpParams.put("vnp_TmnCode", properties.getTmnCode());
+        vnpParams.put("vnp_Amount", String.valueOf(request.amount() * 100L));
+        vnpParams.put("vnp_CurrCode", properties.getCurrCode());
+        vnpParams.put("vnp_TxnRef", txnRef);
+        vnpParams.put("vnp_OrderInfo", orderInfo);
+        vnpParams.put("vnp_OrderType", request.orderType() == null ? "other" : request.orderType());
+        vnpParams.put("vnp_Locale", request.locale() == null ? properties.getLocaleDefault() : request.locale());
+        vnpParams.put("vnp_ReturnUrl", properties.getReturnUrl());
+        vnpParams.put("vnp_IpAddr", normalizedIp);
+        vnpParams.put("vnp_CreateDate", DateTimeUtil.nowVnpay(zoneId));
+        vnpParams.put("vnp_ExpireDate", DateTimeUtil.plusMinutesVnpay(zoneId, properties.getExpireMinutes()));
+        if (request.bankCode() != null && !request.bankCode().isBlank()) {
+            vnpParams.put("vnp_BankCode", request.bankCode());
         }
 
-        String sign = PaymentUtils.hmacSHA512(hashSecret, hashData.toString());
-        return sign.equalsIgnoreCase(vnp_SecureHash);
+        String hashData = VnpayUtil.buildHashData(vnpParams);
+        String query = VnpayUtil.buildQueryString(vnpParams);
+        String secureHash = HmacUtil.hmacSha512(properties.getHashSecret(), hashData);
+
+        String paymentUrl = properties.getUrl() + "?" + query + "&vnp_SecureHash=" + secureHash;
+        transactionService.createPending(request.orderId(), PaymentProvider.VNPAY, txnRef, request.amount(),
+                properties.getCurrCode());
+
+        return new VnpayCreateResponse("00", "success", paymentUrl, txnRef);
+    }
+
+    public boolean verifySignature(Map<String, String> params) {
+        String secureHash = params.get("vnp_SecureHash");
+        params.remove("vnp_SecureHash");
+        params.remove("vnp_SecureHashType");
+        String hashData = VnpayUtil.buildHashData(params);
+        String computed = HmacUtil.hmacSha512(properties.getHashSecret(), hashData);
+        return computed.equalsIgnoreCase(secureHash);
+    }
+
+    public VnpayIpnResponse handleIpn(Map<String, String> params) {
+        if (!verifySignature(new HashMap<>(params))) {
+            return new VnpayIpnResponse("97", "Invalid Checksum");
+        }
+
+        String txnRef = params.get("vnp_TxnRef");
+        Optional<PaymentTransaction> txOptional = transactionService.findByTxnRef(txnRef);
+        if (txOptional.isEmpty()) {
+            return new VnpayIpnResponse("01", "Order not Found");
+        }
+
+        PaymentTransaction tx = txOptional.get();
+        long expectedAmount = tx.getAmount() * 100;
+        long actualAmount = Long.parseLong(params.getOrDefault("vnp_Amount", "0"));
+        if (expectedAmount != actualAmount) {
+            return new VnpayIpnResponse("04", "Invalid Amount");
+        }
+
+        if (tx.getStatus() != PaymentStatus.PENDING) {
+            return new VnpayIpnResponse("02", "Order already confirmed");
+        }
+
+        String responseCode = params.get("vnp_ResponseCode");
+        String transactionStatus = params.get("vnp_TransactionStatus");
+        String transactionNo = params.get("vnp_TransactionNo");
+        String payDate = params.get("vnp_PayDate");
+        Instant paidAt = DateTimeUtil.parseVnpayPayDate(payDate, resolveZoneId());
+        String rawCallback = toJson(params);
+
+        if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
+            transactionService.updateIfPending(txnRef, PaymentStatus.SUCCEEDED, responseCode,
+                    transactionStatus, transactionNo, payDate, rawCallback, paidAt);
+            eventPublisher.publishSucceeded(tx.getOrderId(), PaymentProvider.VNPAY.name(), txnRef, tx.getAmount(),
+                    tx.getCurrency(), paidAt == null ? Instant.now() : paidAt);
+            return new VnpayIpnResponse("00", "Confirm Success");
+        }
+
+        PaymentStatus status = "24".equals(responseCode) ? PaymentStatus.CANCELLED : PaymentStatus.FAILED;
+        transactionService.updateIfPending(txnRef, status, responseCode, transactionStatus, transactionNo, payDate,
+                rawCallback, null);
+        eventPublisher.publishFailed(tx.getOrderId(), PaymentProvider.VNPAY.name(), txnRef, tx.getAmount(),
+                tx.getCurrency(), responseCode);
+        return new VnpayIpnResponse("00", "Confirm Success");
+    }
+
+    private String generateTxnRef() {
+        String datePrefix = DateTimeUtil.todayVnpayDate(resolveZoneId());
+        for (int i = 0; i < MAX_TXN_REF_RETRY; i++) {
+            int length = MIN_SUFFIX_DIGITS + RANDOM.nextInt(MAX_SUFFIX_DIGITS - MIN_SUFFIX_DIGITS + 1);
+            String candidate = datePrefix + randomDigits(length);
+            if (!transactionService.existsByTxnRef(candidate)) {
+                return candidate;
+            }
+        }
+        return datePrefix + digitsOnly(Long.toString(System.nanoTime()));
+    }
+
+    private String randomDigits(int length) {
+        StringBuilder builder = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            builder.append((char) ('0' + RANDOM.nextInt(10)));
+        }
+        return builder.toString();
+    }
+
+    private String digitsOnly(String value) {
+        StringBuilder builder = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch >= '0' && ch <= '9') {
+                builder.append(ch);
+            }
+        }
+        return builder.toString();
+    }
+
+    private ZoneId resolveZoneId() {
+        String timezone = properties.getTimezone();
+        if (timezone == null || timezone.isBlank()) {
+            return DEFAULT_ZONE_ID;
+        }
+        String normalized = timezone.trim();
+        if (normalized.startsWith("Etc/GMT+")) {
+            return DEFAULT_ZONE_ID;
+        }
+        try {
+            return ZoneId.of(normalized);
+        } catch (RuntimeException ex) {
+            return DEFAULT_ZONE_ID;
+        }
+    }
+
+    private String normalizeIp(String ipAddress) {
+        String candidate = ipAddress == null ? "" : ipAddress.trim();
+        if (candidate.contains(",")) {
+            candidate = candidate.split(",")[0].trim();
+        }
+        if (isValidIp(candidate)) {
+            return candidate;
+        }
+        return isSandboxUrl() ? "127.0.0.1" : "127.0.0.1";
+    }
+
+    private boolean isSandboxUrl() {
+        String url = properties.getUrl();
+        if (url == null) {
+            return false;
+        }
+        return url.toLowerCase(Locale.ROOT).contains("sandbox");
+    }
+
+    private boolean isValidIp(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        if (value.contains(":")) {
+            return value.length() <= 45;
+        }
+        String[] parts = value.split("\\.");
+        if (parts.length != 4) {
+            return false;
+        }
+        for (String part : parts) {
+            try {
+                int octet = Integer.parseInt(part);
+                if (octet < 0 || octet > 255) {
+                    return false;
+                }
+            } catch (NumberFormatException ex) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return "{}";
+        }
     }
 }

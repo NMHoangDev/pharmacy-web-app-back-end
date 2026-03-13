@@ -6,6 +6,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -14,12 +16,15 @@ import java.util.UUID;
 @Table(name = "reviews")
 public class Review {
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(columnDefinition = "char(36)")
     private UUID id;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "product_id", nullable = false, columnDefinition = "char(36)")
     private UUID productId;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "user_id", nullable = false, columnDefinition = "char(36)")
     private UUID userId;
 
@@ -31,6 +36,12 @@ public class Review {
 
     @Column(columnDefinition = "TEXT")
     private String content;
+
+    @Column(name = "reply_content", columnDefinition = "TEXT")
+    private String replyContent;
+
+    @Column(name = "replied_at")
+    private Instant repliedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -88,6 +99,22 @@ public class Review {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getReplyContent() {
+        return replyContent;
+    }
+
+    public void setReplyContent(String replyContent) {
+        this.replyContent = replyContent;
+    }
+
+    public Instant getRepliedAt() {
+        return repliedAt;
+    }
+
+    public void setRepliedAt(Instant repliedAt) {
+        this.repliedAt = repliedAt;
     }
 
     public ReviewStatus getStatus() {

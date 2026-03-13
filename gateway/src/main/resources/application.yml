@@ -1,6 +1,10 @@
 spring:
+  config:
+    import: optional:configserver:http://config-server:8888
   application:
-    name: gateway
+    name: gateway-service
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   main:
     web-application-type: reactive
   cloud:
@@ -25,8 +29,6 @@ spring:
           uri: http://localhost:7022
           predicates:
             - Path=/api/notifications/**
-          filters:
-            - StripPrefix=1
         - id: user-service
           uri: http://127.0.0.1:7016
           predicates:
@@ -174,9 +176,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: health,info,refresh,busrefresh,prometheus
+  health:
+    kafka:
+      enabled: false
+    binders:
+      enabled: false
   endpoint:
     health:
+      show-details: always
       probes:
         enabled: true
 

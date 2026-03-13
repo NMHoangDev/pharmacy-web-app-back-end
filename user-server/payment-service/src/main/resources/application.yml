@@ -1,41 +1,58 @@
 spring:
+  config:
+    import: optional:configserver:http://config-server:8888
   application:
     name: payment-service
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/payment_db}
-    username: ${DATABASE_USER:postgres}
-    password: ${DATABASE_PASS:postgres}
+    url: jdbc:mysql://127.0.0.1:3306/payment_db
+    username: root
+    password: 160525
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        type:
+          preferred_uuid_jdbc_type: CHAR
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
- 
+
 server:
   port: ${SERVER_PORT:7020}
- 
+
 payment:
+  events:
+    topic: ${PAYMENT_EVENTS_TOPIC:payment.events}
   vnpay:
-    tmn-code: ${VNP_TMN_CODE:QC6ST9D7}
-    hash-secret: ${VNP_HASH_SECRET:YOCVUYXFOGXFQUZXJFXTXKXKXKXKXKXK}
+    tmn-code: QC6ST9D7
+    hash-secret: YOCVUYXFOGXFQUZXJFXTXKXKXKXKXKXK
     url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+    return-url: https://payments-scuba-reasonably-estimation.trycloudflare.com/api/payments/vnpay/return
+    ipn-url: https://payments-scuba-reasonably-estimation.trycloudflare.com/api/payments/vnpay/ipn
+    version: 2.1.0
+    command: pay
+    curr-code: VND
+    locale-default: vn
+    expire-minutes: 15
+    timezone: Asia/Ho_Chi_Minh
   zalopay:
     app-id: ${ZLP_APP_ID:553}
     key1: ${ZLP_KEY1:9ph31993439}
     key2: ${ZLP_KEY2:Iyz2habByr7S9uE67zH9G8X5rUf2jQu}
-    endpoint: https://sb-openapi.zalopay.vn/v2/create
- 
+    endpoint: ${ZLP_ENDPOINT:https://sb-openapi.zalopay.vn/v2/create}
+    callback-url: ${ZLP_CALLBACK_URL:https://your-domain.com/payments/zalopay/callback}
+    redirect-url: ${ZLP_REDIRECT_URL:https://your-frontend.com/checkout/result}
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,refresh,busrefresh
 logging:
   level:
     org.hibernate.SQL: WARN

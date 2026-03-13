@@ -1,8 +1,12 @@
 spring:
   config:
-    import: "optional:file:${user.dir}/.env[.properties]"
+    import:
+      - "optional:file:${user.dir}/.env[.properties]"
+      - optional:configserver:http://config-server:8888
   application:
     name: identity-service
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
   datasource:
     url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:user_db}?useSSL=false&serverTimezone=UTC
@@ -25,11 +29,11 @@ keycloak:
   admin-username: ${KEYCLOAK_ADMIN_USERNAME:admin}
   admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
   client-id: ${KEYCLOAK_CLIENT_ID:pharmacy-app}
-  client-secret: ${KEYCLOAK_CLIENT_SECRET:G6Z8zQp4S9yV2W5vB7n3m1X0kC8jL5hR}
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:}
 
 identity:
   jwt:
-    secret: ${IDENTITY_JWT_SECRET:dev-secret-change-me}
+    secret: ${IDENTITY_JWT_SECRET:dev-secret-change-me-32-bytes-minimum!!}
     issuer: ${IDENTITY_JWT_ISSUER:http://localhost:7070}
     expires-minutes: ${IDENTITY_JWT_EXPIRES:120}
 
@@ -37,4 +41,4 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,refresh,busrefresh

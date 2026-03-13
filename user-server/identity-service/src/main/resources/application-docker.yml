@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: identity-service
+  datasource:
+    url: jdbc:mysql://${IDENTITY_DB_HOST:mysql}:${IDENTITY_DB_PORT:3306}/${IDENTITY_DB_NAME:user_db}?useSSL=false&serverTimezone=UTC
+    username: ${IDENTITY_DB_USER:root}
+    password: ${IDENTITY_DB_PASS:160525}
+
+server:
+  port: 7070
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+services:
+  user:
+    uri: ${USER_SERVICE_URL:http://user-service:7016}
+
+identity:
+  jwt:
+    issuer: ${IDENTITY_JWT_ISSUER:http://identity-service:7070}

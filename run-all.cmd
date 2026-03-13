@@ -51,6 +51,15 @@ start "catalog-service" cmd /k "cd /d "%ROOT%user-server\catalog-service" && mvn
 start "inventory-service" cmd /k "cd /d "%ROOT%user-server\inventory-service" && mvn -DskipTests clean spring-boot:run"
 start "order-service" cmd /k "cd /d "%ROOT%user-server\order-service" && mvn -DskipTests clean spring-boot:run"
 start "cart-service" cmd /k "cd /d "%ROOT%user-server\cart-service" && mvn -DskipTests clean spring-boot:run"
+REM Load payment-service env vars if a .env file is present.
+set "PAYMENT_ENV_FILE=%ROOT%user-server\payment-service\.env"
+if exist "%PAYMENT_ENV_FILE%" (
+	for /f "usebackq tokens=1,* delims== eol=#" %%A in ("%PAYMENT_ENV_FILE%") do (
+		if not "%%A"=="" set "%%A=%%B"
+	)
+) else (
+	echo Warning: %PAYMENT_ENV_FILE% not found. payment-service will use defaults.
+)
 start "payment-service" cmd /k "cd /d "%ROOT%user-server\payment-service" && mvn -DskipTests clean spring-boot:run"
 start "media-service" cmd /k "cd /d "%ROOT%user-server\media-service" && mvn -DskipTests clean spring-boot:run"
 start "notification-service" cmd /k "cd /d "%ROOT%user-server\notification-service" && mvn -DskipTests clean spring-boot:run"

@@ -46,15 +46,21 @@ public class SignalWsController {
         relaySignal(roomId, "ICE", payload, principal.getName());
     }
 
+    // Sent by a peer (USER/ADMIN) to request the PHARMACIST to re-send an OFFER
+    @MessageMapping("/calls/{roomId}/signal.join")
+    public void contentJoin(@DestinationVariable String roomId, @Payload Map<String, Object> payload,
+            Principal principal) {
+        relaySignal(roomId, "JOIN", payload, principal.getName());
+    }
+
     private void relaySignal(String roomId, String type, Map<String, Object> data, String userId) {
-        // Validate room exists and user is participant of the appointment
+        // Validate room exists and user is a participant of the appointment
         ConsultationSession session = sessionRepository.findByRoomId(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
-        // Check authorization
+        // Authorization check only — no call-window check here so ICE candidates
+        // are never dropped mid-call due to time-window edge cases
         appointmentAccessService.getAppointmentIfAuthorized(session.getAppointmentId(), userId);
-        appointmentAccessService.validateCallWindow(
-                appointmentAccessService.getAppointmentIfAuthorized(session.getAppointmentId(), userId));
 
         SignalMessage signal = new SignalMessage();
         signal.setType(type);

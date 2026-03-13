@@ -57,7 +57,8 @@ public class ChatService {
     public MessageResponse saveAndBroadcast(String appointmentId, String userId, MessageRequest request) {
         Appointment appointment = appointmentAccessService.getAppointmentIfAuthorized(appointmentId, userId);
 
-        String role = userId.equals(appointment.getUserId()) ? "USER" : "PHARMACIST";
+        UUID senderId = UUID.fromString(userId);
+        String role = senderId.equals(appointment.getUserId()) ? "USER" : "PHARMACIST";
 
         ChatMessage message = new ChatMessage();
         message.setId(UUID.randomUUID().toString());

@@ -1,16 +1,26 @@
 package com.backend.payment.api;
 
-import com.backend.payment.api.dto.PaymentMethodResponse;
 import com.backend.payment.api.dto.PaymentInitiateRequest;
 import com.backend.payment.api.dto.PaymentInitiateResponse;
+import com.backend.payment.api.dto.PaymentMethodResponse;
+import com.backend.payment.api.dto.VnpayCreateRequest;
+import com.backend.payment.api.dto.ZaloPayCreateRequest;
+import com.backend.payment.api.dto.ZaloPayCreateResponse;
+import com.backend.payment.api.dto.VnpayCreateResponse;
 import com.backend.payment.service.VNPayService;
 import com.backend.payment.service.ZaloPayService;
+import com.backend.payment.util.IpUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -36,16 +46,30 @@ public class PaymentController {
     @PostMapping("/initiate")
     public ResponseEntity<PaymentInitiateResponse> initiate(
             @Valid @RequestBody PaymentInitiateRequest request,
-            HttpServletRequest servletRequest) throws Exception {
-
-        String paymentUrl = "";
+            HttpServletRequest servletRequest) {
+        String paymentUrl;
         String provider = request.provider().toUpperCase();
 
         if ("VNPAY".equals(provider)) {
-            String ip = servletRequest.getRemoteAddr();
-            paymentUrl = vnpayService.createPaymentUrl(request, ip);
+            String ip = IpUtil.getClientIp(servletRequest);
+            VnpayCreateRequest vnpayRequest = new VnpayCreateRequest(
+                    request.orderId(),
+                    (long) request.amount(),
+                    request.orderInfo() == null ? "Thanh toan don hang: " + request.orderId() : request.orderInfo(),
+                    "other",
+                    null,
+                    null);
+            VnpayCreateResponse response = vnpayService.createPaymentUrl(vnpayRequest, ip);
+            paymentUrl = response.data();
         } else if ("ZALOPAY".equals(provider)) {
-            paymentUrl = zalopayService.createOrder(request);
+            ZaloPayCreateRequest zaloPayRequest = new ZaloPayCreateRequest(
+                    request.orderId(),
+                    (long) request.amount(),
+                    request.orderInfo() == null ? "Thanh toan don hang: " + request.orderId() : request.orderInfo(),
+                    List.of(),
+                    Map.of("orderId", request.orderId()));
+            ZaloPayCreateResponse response = zalopayService.createOrder(zaloPayRequest);
+            paymentUrl = response.paymentUrl();
         } else {
             return ResponseEntity.badRequest()
                     .body(new PaymentInitiateResponse(null, "Unsupported provider: " + provider));

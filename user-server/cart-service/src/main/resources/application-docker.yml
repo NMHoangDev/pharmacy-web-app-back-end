@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: cart-service
+
+server:
+  port: 7026
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+order:
+  service:
+    base-url: ${ORDER_SERVICE_BASE_URL:http://order-service:7019}
+
+inventory:
+  service:
+    base-url: ${INVENTORY_SERVICE_BASE_URL:http://inventory-service:7018}

@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: media-service
+
+server:
+  port: 7021
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+s3:
+  endpoint: ${S3_ENDPOINT:http://minio:9000}
+
+media:
+  base-url: ${MEDIA_BASE_URL:http://gateway:8087}

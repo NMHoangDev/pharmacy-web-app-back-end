@@ -11,9 +11,12 @@ import com.backend.appointment.repo.AppointmentRepository;
 import com.backend.appointment.repo.PharmacistRosterRepository;
 import com.backend.appointment.repo.PharmacistTimeOffRepository;
 import com.backend.appointment.security.SecurityUtils;
+import com.backend.appointment.client.UserClient;
 import com.backend.common.messaging.EventTypes;
 import com.backend.common.messaging.TopicNames;
 import com.backend.common.model.EventEnvelope;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,9 +37,11 @@ import java.util.UUID;
 
 @Service
 public class AppointmentService {
+    private static final Logger log = LoggerFactory.getLogger(AppointmentService.class);
     private final AppointmentRepository repo;
     private final KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate;
     private final com.backend.appointment.client.PharmacistClient pharmacistClient;
+    private final UserClient userClient;
     private final PharmacistRosterRepository rosterRepository;
     private final PharmacistTimeOffRepository timeOffRepository;
     private final AppointmentAuditService auditService;
@@ -47,6 +52,7 @@ public class AppointmentService {
 
     public AppointmentService(AppointmentRepository repo, KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate,
             com.backend.appointment.client.PharmacistClient pharmacistClient,
+            UserClient userClient,
             PharmacistRosterRepository rosterRepository,
             PharmacistTimeOffRepository timeOffRepository,
             AppointmentAuditService auditService,
@@ -54,6 +60,7 @@ public class AppointmentService {
         this.repo = repo;
         this.kafkaTemplate = kafkaTemplate;
         this.pharmacistClient = pharmacistClient;
+        this.userClient = userClient;
         this.rosterRepository = rosterRepository;
         this.timeOffRepository = timeOffRepository;
         this.auditService = auditService;
@@ -324,6 +331,8 @@ public class AppointmentService {
 
     private AppointmentResponse toResponse(Appointment a, boolean includeNotes) {
         com.backend.appointment.client.dto.PharmacistPreviewDto pharmacist = null;
+        String patientName = a.getFullName();
+        String patientContact = a.getContact();
         try {
             if (a.getPharmacistId() != null) {
                 pharmacist = pharmacistClient.getPharmacist(a.getPharmacistId());
@@ -332,11 +341,34 @@ public class AppointmentService {
             // log error but don't fail
             // System.err.println("Failed to fetch pharmacist: " + e.getMessage());
         }
-        return new AppointmentResponse(a.getId(), a.getUserId(), a.getFullName(), a.getContact(), a.getPharmacistId(),
+
+        boolean pharmacistView = SecurityUtils.isPharmacist();
+        if (a.getUserId() != null && (pharmacistView || isBlank(patientName) || isBlank(patientContact))) {
+            try {
+                var user = userClient.getUser(a.getUserId());
+                if (pharmacistView && !isBlank(user.fullName())) {
+                    patientName = user.fullName();
+                } else if (isBlank(patientName) && !isBlank(user.fullName())) {
+                    patientName = user.fullName();
+                }
+                if (isBlank(patientContact) && !isBlank(user.phone())) {
+                    patientContact = user.phone();
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to enrich appointment {} from user-service for user {}: {}",
+                        a.getId(), a.getUserId(), ex.getMessage());
+            }
+        }
+
+        return new AppointmentResponse(a.getId(), a.getUserId(), patientName, patientContact, a.getPharmacistId(),
                 a.getBranchId(), a.getStartAt(), a.getEndAt(), a.getStatus(), a.getChannel(),
                 includeNotes ? a.getNotes() : null,
                 a.getCancelReason(), a.getRescheduleReason(), a.getRefundReason(), a.getNoShowReason(), pharmacist,
                 a.getCreatedAt(), a.getUpdatedAt());
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private void publish(String type, AppointmentResponse payload) {

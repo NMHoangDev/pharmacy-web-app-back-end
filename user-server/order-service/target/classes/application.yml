@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:configserver:http://config-server:8888
   application:
     name: order-service
   datasource:
@@ -22,7 +24,7 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: order-payment-group
       auto-offset-reset: earliest
@@ -40,7 +42,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,refresh,busrefresh
   logging:
     level:
       org.springframework.web: DEBUG

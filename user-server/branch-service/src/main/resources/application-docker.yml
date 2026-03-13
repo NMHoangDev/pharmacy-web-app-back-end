@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: branch-service
+  datasource:
+    url: jdbc:mysql://${BRANCH_DB_HOST:mysql}:${BRANCH_DB_PORT:3306}/branch_db
+    username: ${BRANCH_DB_USER:root}
+    password: ${BRANCH_DB_PASS:160525}
+
+server:
+  port: 7030
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true

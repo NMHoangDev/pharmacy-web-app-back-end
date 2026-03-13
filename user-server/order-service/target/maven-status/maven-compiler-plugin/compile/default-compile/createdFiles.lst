@@ -5,11 +5,13 @@ com\backend\order\api\dto\BranchSummaryDto.class
 com\backend\order\repo\CartRepository.class
 com\backend\order\repo\PaymentRepository.class
 com\backend\order\model\Payment.class
+com\backend\order\web\PromoFeatureController.class
 com\backend\order\api\dto\ShippingResponse.class
 com\backend\order\api\dto\BranchAvailabilityItem.class
 com\backend\order\messaging\PaymentStatusListener.class
 com\backend\order\api\dto\CartItemRequest.class
 com\backend\order\api\dto\ShippingMethodResponse.class
+com\backend\order\config\PromoFeatureProperties.class
 com\backend\order\service\InventoryClient.class
 com\backend\order\model\OrderShippingAddress.class
 com\backend\order\repo\OrderItemRepository.class

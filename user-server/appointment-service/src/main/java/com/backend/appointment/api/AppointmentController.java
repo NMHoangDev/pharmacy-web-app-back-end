@@ -6,6 +6,7 @@ import com.backend.appointment.api.dto.CancelRequest;
 import com.backend.appointment.api.dto.RescheduleRequest;
 import com.backend.appointment.service.AppointmentService;
 import com.backend.appointment.service.AppointmentAccessService;
+import com.backend.appointment.service.CurrentPharmacistResolver;
 import com.backend.appointment.security.SecurityUtils;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,10 +23,13 @@ public class AppointmentController {
 
     private final AppointmentService service;
     private final AppointmentAccessService accessService;
+    private final CurrentPharmacistResolver pharmacistResolver;
 
-    public AppointmentController(AppointmentService service, AppointmentAccessService accessService) {
+    public AppointmentController(AppointmentService service, AppointmentAccessService accessService,
+            CurrentPharmacistResolver pharmacistResolver) {
         this.service = service;
         this.accessService = accessService;
+        this.pharmacistResolver = pharmacistResolver;
     }
 
     @GetMapping("/ping")
@@ -62,18 +66,11 @@ public class AppointmentController {
             @RequestParam(required = false) UUID branchId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        if (!SecurityUtils.isAdmin()) {
-            UUID actorId = SecurityUtils.getActorId();
-            if (actorId == null || !actorId.equals(pharmacistId)) {
-                throw new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.FORBIDDEN, "Not allowed");
-            }
-        }
         return ResponseEntity.ok(service.listByPharmacist(pharmacistId, branchId, page, size));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER','PHARMACIST','ADMIN')")
+    @PreAuthorize("hasAnyRole('PHARMACIST','USER','ADMIN')")
     public ResponseEntity<AppointmentResponse> get(@PathVariable UUID id) {
         boolean includeNotes = SecurityUtils.isPharmacist();
         if (!SecurityUtils.isAdmin() && !SecurityUtils.isPharmacist()) {
@@ -86,7 +83,7 @@ public class AppointmentController {
     @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
     public ResponseEntity<AppointmentResponse> confirm(@PathVariable UUID id, HttpServletRequest request) {
         if (SecurityUtils.isPharmacist()) {
-            accessService.requirePharmacist(id, SecurityUtils.getActorId());
+            accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
         }
         return ResponseEntity.ok(service.confirm(id, null, extractIp(request)));
     }
@@ -96,7 +93,9 @@ public class AppointmentController {
     public ResponseEntity<AppointmentResponse> cancel(@PathVariable UUID id,
             @RequestBody(required = false) CancelRequest body,
             HttpServletRequest request) {
-        if (!SecurityUtils.isAdmin() && !SecurityUtils.isPharmacist()) {
+        if (SecurityUtils.isPharmacist()) {
+            accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
+        } else if (!SecurityUtils.isAdmin()) {
             accessService.requireParticipant(id, SecurityUtils.getActorId());
         }
         return ResponseEntity.ok(service.cancel(id, body != null ? body.reason() : null, extractIp(request)));
@@ -108,7 +107,7 @@ public class AppointmentController {
             @RequestBody @Valid RescheduleRequest body,
             HttpServletRequest request) {
         if (SecurityUtils.isPharmacist()) {
-            accessService.requirePharmacist(id, SecurityUtils.getActorId());
+            accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
         }
         return ResponseEntity.ok(service.reschedule(id, body.startAt(), body.endAt(), body.reason(),
                 extractIp(request)));
@@ -118,7 +117,7 @@ public class AppointmentController {
     @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
     public ResponseEntity<AppointmentResponse> start(@PathVariable UUID id, HttpServletRequest request) {
         if (SecurityUtils.isPharmacist()) {
-            accessService.requirePharmacist(id, SecurityUtils.getActorId());
+            accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
         }
         return ResponseEntity.ok(service.start(id, extractIp(request)));
     }
@@ -127,7 +126,7 @@ public class AppointmentController {
     @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
     public ResponseEntity<AppointmentResponse> complete(@PathVariable UUID id, HttpServletRequest request) {
         if (SecurityUtils.isPharmacist()) {
-            accessService.requirePharmacist(id, SecurityUtils.getActorId());
+            accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
         }
         return ResponseEntity.ok(service.complete(id, extractIp(request)));
     }
@@ -142,7 +141,7 @@ public class AppointmentController {
                     org.springframework.http.HttpStatus.BAD_REQUEST, "reason required");
         }
         if (SecurityUtils.isPharmacist()) {
-            accessService.requirePharmacist(id, SecurityUtils.getActorId());
+            accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
         }
         // log break-glass for admin
         if (SecurityUtils.isAdmin()) {

@@ -109,8 +109,15 @@ public class CheckoutService {
         orderRepository.save(order);
 
         // 6. Outbox for inventory/notification
-        String payload = String.format("{\"orderId\":\"%s\", \"userId\":\"%s\", \"status\":\"%s\"}",
-                orderId, request.userId(), order.getStatus());
+        String payload = String.format(
+                "{\"orderId\":\"%s\",\"userId\":\"%s\",\"status\":\"%s\",\"totalAmount\":%s,\"paymentMethod\":\"%s\",\"promoCode\":%s}",
+                orderId,
+                request.userId(),
+                order.getStatus(),
+                quote.grandTotal(),
+                request.paymentMethod(),
+                request.promoCode() == null || request.promoCode().isBlank() ? "null"
+                        : "\"" + request.promoCode() + "\"");
         outboxRepository.save(new OutboxEvent(UUID.randomUUID(), "OrderPlaced", payload, "NEW"));
 
         return new CheckoutResponse(orderId, order.getStatus().name());

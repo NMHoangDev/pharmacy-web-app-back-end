@@ -24,6 +24,21 @@ public final class SecurityUtils {
         return null;
     }
 
+    public static String getActorEmail() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            String email = jwtAuth.getToken().getClaimAsString("email");
+            if (email != null && !email.isBlank()) {
+                return email;
+            }
+            String username = jwtAuth.getToken().getClaimAsString("preferred_username");
+            if (username != null && !username.isBlank()) {
+                return username;
+            }
+        }
+        return null;
+    }
+
     public static Set<String> getRoles() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) {

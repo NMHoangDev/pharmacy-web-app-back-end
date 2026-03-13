@@ -34,9 +34,6 @@ public class Drug {
     @Column(name = "sale_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal salePrice;
 
-    @Column(name = "price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
-
     @Column(nullable = false)
     private String status; // ACTIVE | INACTIVE
 
@@ -112,14 +109,6 @@ public class Drug {
 
     public void setSalePrice(BigDecimal salePrice) {
         this.salePrice = salePrice;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
     }
 
     public String getStatus() {

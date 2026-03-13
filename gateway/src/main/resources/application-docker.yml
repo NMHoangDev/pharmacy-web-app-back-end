@@ -1,0 +1,120 @@
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      routes:
+        - id: branch-service-public
+          uri: ${services.branch.uri:http://branch-service:7030}
+          predicates:
+            - Path=/api/branches/**,/api/branches
+        - id: auth-service
+          uri: ${services.auth.uri:http://identity-service:7070}
+          predicates:
+            - Path=/api/auth/**
+        - id: media-service
+          uri: ${services.media.uri:http://media-service:7021}
+          predicates:
+            - Path=/api/media/**
+        - id: notification-service
+          uri: ${services.notification.uri:http://notification-service:7022}
+          predicates:
+            - Path=/api/notifications/**
+        - id: user-service
+          uri: ${services.user.uri:http://user-service:7016}
+          predicates:
+            - Path=/api/users/**
+        - id: cart-service
+          uri: ${services.cart.uri:http://cart-service:7026}
+          predicates:
+            - Path=/api/cart/**,/api/cart
+          filters:
+            - PreserveHostHeader=true
+        - id: order-service
+          uri: ${services.order.uri:http://order-service:7019}
+          predicates:
+            - Path=/api/orders/**, /api/order/**, /api/checkout/**
+        - id: appointment-service
+          uri: ${services.appointment.uri:http://appointment-service:7024}
+          predicates:
+            - Path=/api/appointments/**, /api/appointments, /api/consultations/**, /ws/**
+        - id: review-service
+          uri: ${services.review.uri:http://review-service:7023}
+          predicates:
+            - Path=/api/reviews/**
+        - id: inventory-service
+          uri: ${services.inventory.uri:http://inventory-service:7018}
+          predicates:
+            - Path=/api/inventory/**
+        - id: content-service
+          uri: ${services.content.uri:http://content-service:7031}
+          predicates:
+            - Path=/api/content/**
+        - id: payment-service
+          uri: ${services.payment.uri:http://payment-service:7020}
+          predicates:
+            - Path=/api/payments/**
+        - id: catalog-public
+          uri: ${services.catalog.uri:http://catalog-service:7017}
+          predicates:
+            - Path=/api/catalog/public/**
+          order: -1
+        - id: catalog-service
+          uri: ${services.catalog.uri:http://catalog-service:7017}
+          predicates:
+            - Path=/api/catalog/**
+          filters:
+            - TokenRelay
+        - id: pharmacist-service
+          uri: ${services.pharmacist.uri:http://pharmacist-service:7025}
+          predicates:
+            - Path=/api/pharmacists/**
+          filters:
+            - TokenRelay
+        - id: admin-pharmacist-service
+          uri: ${services.pharmacist.uri:http://pharmacist-service:7025}
+          predicates:
+            - Path=/api/admin/pharmacists/**
+          filters:
+            - TokenRelay
+          order: -1
+        - id: admin-order-service
+          uri: ${services.order.uri:http://order-service:7019}
+          predicates:
+            - Path=/api/admin/orders/**
+          filters:
+            - TokenRelay
+          order: -1
+        - id: admin-appointment-service
+          uri: ${services.appointment.uri:http://appointment-service:7024}
+          predicates:
+            - Path=/api/admin/appointments/**
+          filters:
+            - TokenRelay
+          order: -1
+        - id: admin-branch-service
+          uri: ${services.branch.uri:http://branch-service:7030}
+          predicates:
+            - Path=/api/admin/branches/**,/api/admin/branches
+          filters:
+            - TokenRelay
+          order: -2
+        - id: admin-bff
+          uri: ${services.adminbff.uri:http://admin-bff-service:7010}
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - TokenRelay
+
+server:
+  port: 8087
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
