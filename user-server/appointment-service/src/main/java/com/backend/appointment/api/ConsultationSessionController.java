@@ -5,6 +5,7 @@ import com.backend.appointment.api.dto.ConsultationPrescriptionOrderResponse;
 import com.backend.appointment.api.dto.ConsultationPrescriptionProductPageResponse;
 import com.backend.appointment.api.dto.ConsultationRequest;
 import com.backend.appointment.api.dto.ConsultationResponse;
+import com.backend.appointment.security.SecurityUtils;
 import com.backend.appointment.service.ConsultationService;
 import com.backend.appointment.service.CurrentPharmacistResolver;
 import jakarta.validation.Valid;
@@ -18,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -37,22 +39,30 @@ public class ConsultationSessionController {
             @PathVariable String appointmentId,
             @Valid @RequestBody ConsultationRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        // userId = jwt.getSubject()
-        return ResponseEntity.ok(consultationService.createSession(appointmentId, jwt.getSubject(), request));
+        return ResponseEntity.ok(consultationService.createSession(appointmentId, resolveActorId(jwt), request));
     }
 
     @PostMapping("/consultations/{roomId}/join")
     public ResponseEntity<ConsultationResponse> joinSession(
             @PathVariable String roomId,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(consultationService.joinSession(roomId, jwt.getSubject()));
+        return ResponseEntity.ok(consultationService.joinSession(roomId, resolveActorId(jwt)));
     }
 
     @PostMapping("/consultations/{roomId}/leave")
     public ResponseEntity<ConsultationResponse> leaveSession(
             @PathVariable String roomId,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(consultationService.leaveSession(roomId, jwt.getSubject()));
+        return ResponseEntity.ok(consultationService.leaveSession(roomId, resolveActorId(jwt)));
+    }
+
+    @PostMapping("/consultations/{roomId}/end")
+    public ResponseEntity<ConsultationResponse> endSession(
+            @PathVariable String roomId,
+            @RequestBody(required = false) Map<String, List<String>> payload,
+            @AuthenticationPrincipal Jwt jwt) {
+        List<String> messageIds = payload == null ? List.of() : payload.getOrDefault("messageIds", List.of());
+        return ResponseEntity.ok(consultationService.endSession(roomId, resolveActorId(jwt), messageIds));
     }
 
     @GetMapping("/consultations/{roomId}")
@@ -61,8 +71,9 @@ public class ConsultationSessionController {
             @AuthenticationPrincipal Jwt jwt) {
         // Implement getSessionDetails in service if missing, using existing
         // findByRoomId
-        return ResponseEntity.ok(consultationService.joinSession(roomId, jwt.getSubject())); // joinSession also returns
-                                                                                             // details
+        return ResponseEntity.ok(consultationService.joinSession(roomId, resolveActorId(jwt))); // joinSession also
+                                                                                                // returns
+                                                                                                // details
     }
 
     @PutMapping("/consultations/{appointmentId}/notes")
@@ -111,5 +122,25 @@ public class ConsultationSessionController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unable to resolve pharmacist identity");
         }
         return pharmacistId;
+    }
+
+    private String resolveActorId(Jwt jwt) {
+        if (SecurityUtils.isPharmacist()) {
+            UUID pharmacistId = pharmacistResolver.resolveForCurrentActor();
+            if (pharmacistId == null) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unable to resolve pharmacist identity");
+            }
+            return pharmacistId.toString();
+        }
+
+        UUID actorId = SecurityUtils.getActorId();
+        if (actorId != null) {
+            return actorId.toString();
+        }
+
+        if (jwt != null && jwt.getSubject() != null && !jwt.getSubject().isBlank()) {
+            return jwt.getSubject();
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unable to resolve actor identity");
     }
 }

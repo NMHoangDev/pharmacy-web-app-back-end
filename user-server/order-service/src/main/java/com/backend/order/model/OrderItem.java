@@ -19,6 +19,24 @@ public class OrderItem {
     @Column(name = "product_name", nullable = false)
     private String productName;
 
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    private String imageUrl;
+
+    @Column(name = "sku", length = 128)
+    private String sku;
+
+    @Column(name = "unit", length = 64)
+    private String unit;
+
+    @Column(name = "category", length = 128)
+    private String category;
+
+    @Column(name = "type", length = 128)
+    private String type;
+
+    @Column(name = "short_description", columnDefinition = "TEXT")
+    private String shortDescription;
+
     @Column(name = "unit_price", nullable = false)
     private double unitPrice;
 
@@ -31,6 +49,20 @@ public class OrderItem {
     public OrderItem(OrderItemId id, String productName, double unitPrice, int quantity) {
         this.id = id;
         this.productName = productName;
+        this.unitPrice = unitPrice;
+        this.quantity = quantity;
+    }
+
+    public OrderItem(OrderItemId id, String productName, String imageUrl, String sku, String unit, String category,
+            String type, String shortDescription, double unitPrice, int quantity) {
+        this.id = id;
+        this.productName = productName;
+        this.imageUrl = imageUrl;
+        this.sku = sku;
+        this.unit = unit;
+        this.category = category;
+        this.type = type;
+        this.shortDescription = shortDescription;
         this.unitPrice = unitPrice;
         this.quantity = quantity;
     }
@@ -57,6 +89,54 @@ public class OrderItem {
 
     public void setProductName(String productName) {
         this.productName = productName;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    public String getSku() {
+        return sku;
+    }
+
+    public void setSku(String sku) {
+        this.sku = sku;
+    }
+
+    public String getUnit() {
+        return unit;
+    }
+
+    public void setUnit(String unit) {
+        this.unit = unit;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getShortDescription() {
+        return shortDescription;
+    }
+
+    public void setShortDescription(String shortDescription) {
+        this.shortDescription = shortDescription;
     }
 
     public double getUnitPrice() {

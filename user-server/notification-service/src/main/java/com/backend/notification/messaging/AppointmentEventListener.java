@@ -47,15 +47,18 @@ public class AppointmentEventListener {
             LocalDateTime startAt = parseDateTime(payload.get("startAt"));
             String scheduledAt = startAt == null ? "chưa xác định" : APPOINTMENT_TIME_FORMAT.format(startAt);
 
+            String title = resolveTitle(event.type());
+            String message = resolveMessage(event.type(), statusLabel, scheduledAt);
+
             notificationService.createUserNotification(
                     userId,
                     "APPOINTMENT",
-                    "Bạn có một lịch hẹn",
-                    "Bạn có một lịch hẹn " + statusLabel + " vào lúc " + scheduledAt + ".",
+                    title,
+                    message,
                     "APPOINTMENT",
                     appointmentId.toString(),
                     event.type(),
-                    "/appointments/" + appointmentId);
+                    "/account");
 
             acknowledgment.acknowledge();
         } catch (Exception ex) {
@@ -82,7 +85,11 @@ public class AppointmentEventListener {
         if (text == null || text.isBlank()) {
             return null;
         }
-        return LocalDateTime.parse(text);
+        try {
+            return LocalDateTime.parse(text);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private String stringValue(Object value) {
@@ -102,5 +109,40 @@ public class AppointmentEventListener {
             case "COMPLETED" -> "đã hoàn thành";
             default -> "có cập nhật mới";
         };
+    }
+
+    private String resolveTitle(String eventType) {
+        if (NotificationEventTypes.APPOINTMENT_CREATED.equalsIgnoreCase(eventType)) {
+            return "Đặt lịch tư vấn thành công";
+        }
+        if (NotificationEventTypes.APPOINTMENT_ACCEPTED.equalsIgnoreCase(eventType)
+                || NotificationEventTypes.APPOINTMENT_CONFIRMED.equalsIgnoreCase(eventType)) {
+            return "Lịch hẹn đã được chấp nhận";
+        }
+        if (NotificationEventTypes.APPOINTMENT_REJECTED.equalsIgnoreCase(eventType)) {
+            return "Lịch hẹn bị từ chối";
+        }
+        if (NotificationEventTypes.APPOINTMENT_CANCELLED.equalsIgnoreCase(eventType)) {
+            return "Lịch hẹn đã bị hủy";
+        }
+        return "Bạn có cập nhật lịch tư vấn";
+    }
+
+    private String resolveMessage(String eventType, String statusLabel, String scheduledAt) {
+        if (NotificationEventTypes.APPOINTMENT_CREATED.equalsIgnoreCase(eventType)) {
+            return "Lịch tư vấn của bạn đã được ghi nhận và đang chờ xác nhận. Thời gian dự kiến: " + scheduledAt
+                    + ".";
+        }
+        if (NotificationEventTypes.APPOINTMENT_ACCEPTED.equalsIgnoreCase(eventType)
+                || NotificationEventTypes.APPOINTMENT_CONFIRMED.equalsIgnoreCase(eventType)) {
+            return "Dược sĩ đã chấp nhận lịch tư vấn của bạn. Thời gian: " + scheduledAt + ".";
+        }
+        if (NotificationEventTypes.APPOINTMENT_REJECTED.equalsIgnoreCase(eventType)) {
+            return "Dược sĩ đã từ chối lịch tư vấn của bạn.";
+        }
+        if (NotificationEventTypes.APPOINTMENT_CANCELLED.equalsIgnoreCase(eventType)) {
+            return "Lịch tư vấn của bạn đã bị hủy.";
+        }
+        return "Lịch tư vấn của bạn vừa có cập nhật mới: " + statusLabel + ".";
     }
 }

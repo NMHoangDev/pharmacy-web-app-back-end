@@ -1,5 +1,6 @@
 package com.backend.order.service;
 
+import com.backend.order.messaging.OrderEventTypes;
 import com.backend.order.api.dto.*;
 import com.backend.order.model.*;
 import com.backend.order.repo.*;
@@ -10,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -68,6 +71,14 @@ public class OrderService {
                 CartItem item = cartItemRepository.findById(id).orElse(new CartItem(id, request.quantity()));
                 item.setQuantity(request.quantity());
                 cartItemRepository.save(item);
+
+                String cartPayload = String.format(
+                                "{\"userId\":\"%s\",\"productId\":\"%s\",\"quantity\":%d}",
+                                userId,
+                                request.productId(),
+                                request.quantity());
+                outboxRepository.save(new OutboxEvent(UUID.randomUUID(), OrderEventTypes.CART_ITEM_ADDED, cartPayload,
+                                "NEW"));
                 return getCart(userId);
         }
 
@@ -97,6 +108,7 @@ public class OrderService {
                 OrderEntity order = new OrderEntity();
                 order.setId(orderId);
                 order.setUserId(req.userId());
+                order.setOrderCode(generateOrderCode());
                 order.setBranchId(resolvedBranchId);
                 order.setSubtotal(quote.subtotal());
                 order.setShippingFee(quote.shippingFee());
@@ -160,7 +172,8 @@ public class OrderService {
                                 order.getStatus(),
                                 order.getTotalAmount(),
                                 order.getPaymentMethod());
-                outboxRepository.save(new OutboxEvent(UUID.randomUUID(), "OrderCreated", payload, "NEW"));
+                outboxRepository.save(
+                                new OutboxEvent(UUID.randomUUID(), OrderEventTypes.ORDER_CREATED, payload, "NEW"));
 
                 return new CheckoutResponse(orderId, order.getStatus().name());
         }
@@ -186,7 +199,7 @@ public class OrderService {
                                 order.getTotalAmount(),
                                 order.getPaymentMethod(),
                                 order.getPaymentStatus());
-                outboxRepository.save(new OutboxEvent(UUID.randomUUID(), "OrderPaid", payload, "NEW"));
+                outboxRepository.save(new OutboxEvent(UUID.randomUUID(), OrderEventTypes.ORDER_PAID, payload, "NEW"));
 
                 return new CheckoutResponse(order.getId(), order.getStatus().name());
         }
@@ -279,6 +292,16 @@ public class OrderService {
                 order.setUpdatedAt(Instant.now());
                 orderRepository.save(order);
 
+                String payload = String.format(
+                                "{\"orderId\":\"%s\",\"userId\":\"%s\",\"status\":\"%s\",\"totalAmount\":%s}",
+                                order.getId(),
+                                order.getUserId(),
+                                order.getStatus(),
+                                order.getTotalAmount());
+                outboxRepository.save(
+                                new OutboxEvent(UUID.randomUUID(), OrderEventTypes.ORDER_STATUS_UPDATED, payload,
+                                                "NEW"));
+
                 List<OrderItem> items = orderItemRepository.findByIdOrderId(orderId);
                 List<OrderResponseItem> resItems = items.stream()
                                 .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
@@ -295,6 +318,15 @@ public class OrderService {
                 order.setStatus(OrderStatus.CANCELED);
                 order.setUpdatedAt(Instant.now());
                 orderRepository.save(order);
+
+                String payload = String.format(
+                                "{\"orderId\":\"%s\",\"userId\":\"%s\",\"status\":\"%s\",\"totalAmount\":%s}",
+                                order.getId(),
+                                order.getUserId(),
+                                order.getStatus(),
+                                order.getTotalAmount());
+                outboxRepository.save(
+                                new OutboxEvent(UUID.randomUUID(), OrderEventTypes.ORDER_CANCELLED, payload, "NEW"));
 
                 List<OrderItem> items = orderItemRepository.findByIdOrderId(orderId);
                 List<OrderResponseItem> resItems = items.stream()
@@ -519,5 +551,10 @@ public class OrderService {
         private boolean isOnlinePayment(String method) {
                 return "CARD".equalsIgnoreCase(method) || "VNPAY".equalsIgnoreCase(method)
                                 || "ZALOPAY".equalsIgnoreCase(method);
+        }
+
+        private String generateOrderCode() {
+                String datePart = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+                return "ORD-" + datePart + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         }
 }

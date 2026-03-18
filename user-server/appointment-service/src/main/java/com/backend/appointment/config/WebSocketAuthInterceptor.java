@@ -11,6 +11,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -37,11 +38,9 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 String token = authHeader.substring(7);
                 try {
                     Jwt jwt = jwtDecoder.decode(token);
-                    String userId = jwt.getSubject();
                     Collection<GrantedAuthority> authorities = roleConverter.convert(jwt);
 
-                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                            userId, null, authorities);
+                    JwtAuthenticationToken auth = new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());
 
                     accessor.setUser(auth);
                 } catch (Exception e) {

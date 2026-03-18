@@ -1,5 +1,6 @@
 package com.backend.order.service;
 
+import com.backend.order.messaging.OrderEventTypes;
 import com.backend.order.api.dto.*;
 import com.backend.order.model.*;
 import com.backend.order.repo.OrderRepository;
@@ -7,6 +8,8 @@ import com.backend.order.repo.OutboxEventRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,6 +52,7 @@ public class CheckoutService {
         OrderEntity order = new OrderEntity();
         order.setId(orderId);
         order.setUserId(request.userId());
+        order.setOrderCode(generateOrderCode());
         order.setBranchId(request.branchId());
         order.setSubtotal(quote.subtotal());
         order.setShippingFee(quote.shippingFee());
@@ -118,7 +122,7 @@ public class CheckoutService {
                 request.paymentMethod(),
                 request.promoCode() == null || request.promoCode().isBlank() ? "null"
                         : "\"" + request.promoCode() + "\"");
-        outboxRepository.save(new OutboxEvent(UUID.randomUUID(), "OrderPlaced", payload, "NEW"));
+        outboxRepository.save(new OutboxEvent(UUID.randomUUID(), OrderEventTypes.ORDER_CREATED, payload, "NEW"));
 
         return new CheckoutResponse(orderId, order.getStatus().name());
     }
@@ -140,5 +144,10 @@ public class CheckoutService {
     private boolean isOnlinePayment(String method) {
         return "CARD".equalsIgnoreCase(method) || "VNPAY".equalsIgnoreCase(method)
                 || "ZALOPAY".equalsIgnoreCase(method);
+    }
+
+    private String generateOrderCode() {
+        String datePart = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        return "ORD-" + datePart + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }

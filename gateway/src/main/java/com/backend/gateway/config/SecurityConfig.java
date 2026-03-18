@@ -35,6 +35,8 @@ public class SecurityConfig {
                                                 // Public
                                                 .pathMatchers("/actuator/health/**", "/actuator/info/**", "/fallback")
                                                 .permitAll()
+                                                .pathMatchers("/ws", "/ws/**")
+                                                .permitAll()
                                                 .pathMatchers("/api/auth/**").permitAll()
                                                 .pathMatchers(HttpMethod.GET, "/api/branches/**", "/api/branches")
                                                 .permitAll()

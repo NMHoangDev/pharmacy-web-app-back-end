@@ -33,6 +33,13 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 3000
+            readTimeout: 5000
 
 eureka:
   client:
@@ -50,8 +57,23 @@ appointment:
 branch:
   base-url: ${BRANCH_SERVICE_BASE_URL:http://localhost:7030}
 
+services:
+  pharmacist:
+    url: ${PHARMACIST_SERVICE_URL:http://localhost:7025}
+  user:
+    url: ${USER_SERVICE_URL:http://localhost:7016}
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info,refresh,busrefresh
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  endpoint:
+    health:
+      probes:
+        enabled: true

@@ -2,6 +2,7 @@ package com.backend.appointment.service;
 
 import com.backend.appointment.api.dto.AppointmentRequest;
 import com.backend.appointment.api.dto.AppointmentResponse;
+import com.backend.appointment.messaging.AppointmentEventTypes;
 import com.backend.appointment.model.Appointment;
 import com.backend.appointment.model.AppointmentStatus;
 import com.backend.appointment.model.Channel;
@@ -12,7 +13,6 @@ import com.backend.appointment.repo.PharmacistRosterRepository;
 import com.backend.appointment.repo.PharmacistTimeOffRepository;
 import com.backend.appointment.security.SecurityUtils;
 import com.backend.appointment.client.UserClient;
-import com.backend.common.messaging.EventTypes;
 import com.backend.common.messaging.TopicNames;
 import com.backend.common.model.EventEnvelope;
 import org.slf4j.Logger;
@@ -84,7 +84,7 @@ public class AppointmentService {
         a.setUpdatedAt(Instant.now());
         repo.save(a);
         auditService.log(a.getId(), "CREATE", null, a.getStatus().name(), null, getActorRole(), actorIp, null);
-        publish(EventTypes.APPOINTMENT_CONFIRMED, toResponse(a, canViewNotes()));
+        publish(AppointmentEventTypes.APPOINTMENT_CREATED, toResponse(a, canViewNotes()));
         return toResponse(a, canViewNotes());
     }
 
@@ -121,22 +121,30 @@ public class AppointmentService {
 
     public AppointmentResponse confirm(UUID id, String reason, String actorIp) {
         Appointment a = repo.findById(requireId(id)).orElseThrow(this::notFound);
+        if (a.getStatus() == AppointmentStatus.CONFIRMED) {
+            return toResponse(a, canViewNotes());
+        }
         transition(a, AppointmentStatus.CONFIRMED);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
         auditService.log(a.getId(), "CONFIRM", null, a.getStatus().name(), reason, getActorRole(), actorIp, null);
-        publish(EventTypes.APPOINTMENT_CONFIRMED, toResponse(a, canViewNotes()));
+        publish(AppointmentEventTypes.APPOINTMENT_ACCEPTED, toResponse(a, canViewNotes()));
         return toResponse(a, canViewNotes());
     }
 
     public AppointmentResponse cancel(UUID id, String reason, String actorIp) {
         Appointment a = repo.findById(requireId(id)).orElseThrow(this::notFound);
+        if (a.getStatus() == AppointmentStatus.CANCELLED) {
+            return toResponse(a, canViewNotes());
+        }
         transition(a, AppointmentStatus.CANCELLED);
         a.setCancelReason(reason);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
         auditService.log(a.getId(), "CANCEL", null, a.getStatus().name(), reason, getActorRole(), actorIp, null);
-        publish(EventTypes.APPOINTMENT_CONFIRMED, toResponse(a, canViewNotes()));
+        publish(SecurityUtils.isPharmacist() ? AppointmentEventTypes.APPOINTMENT_REJECTED
+                : AppointmentEventTypes.APPOINTMENT_CANCELLED,
+                toResponse(a, canViewNotes()));
         return toResponse(a, canViewNotes());
     }
 
@@ -247,6 +255,7 @@ public class AppointmentService {
         repo.save(a);
         auditService.log(a.getId(), "STATUS_UPDATE", null, a.getStatus().name(), reason, getActorRole(), actorIp,
                 "status=" + status);
+        publish(AppointmentEventTypes.APPOINTMENT_STATUS_UPDATED, toResponse(a, true));
         return toResponse(a, true);
     }
 

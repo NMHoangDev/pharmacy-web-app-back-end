@@ -47,9 +47,12 @@ public class NotificationService {
 
         List<NotificationEntity> notifications = notificationRepository.findVisibleForUser(userId, roles, pageable);
         Set<UUID> ids = notifications.stream().map(NotificationEntity::getId).collect(Collectors.toSet());
-        Set<UUID> readIds = notificationReceiptRepository.findByUserIdAndNotificationIdIn(userId, ids).stream()
-                .map(NotificationReceipt::getNotificationId)
-                .collect(Collectors.toSet());
+        Set<UUID> readIds = ids.isEmpty()
+                ? Set.of()
+                : notificationReceiptRepository.findByUserIdAndNotificationIdInAndDeletedAtIsNull(userId, ids)
+                        .stream()
+                        .map(NotificationReceipt::getNotificationId)
+                        .collect(Collectors.toSet());
 
         List<NotificationResponse> items = notifications.stream()
                 .map(notification -> toResponse(notification, readIds.contains(notification.getId())))
@@ -68,10 +71,25 @@ public class NotificationService {
         NotificationEntity notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found"));
         if (!isVisibleToUser(notification, userId, resolveRoles())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Notification does not belong to current user");
+        }
+
+        NotificationReceipt existing = notificationReceiptRepository
+                .findByUserIdAndNotificationId(userId, notificationId)
+                .orElse(null);
+        if (existing != null && existing.getDeletedAt() != null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found");
         }
-        notificationReceiptRepository.findByUserIdAndNotificationId(userId, notificationId)
-                .orElseGet(() -> notificationReceiptRepository.save(newReceipt(userId, notificationId)));
+
+        if (existing == null) {
+            notificationReceiptRepository.save(newReceipt(userId, notificationId));
+            return;
+        }
+
+        if (existing.getReadAt() == null) {
+            existing.setReadAt(Instant.now());
+            notificationReceiptRepository.save(existing);
+        }
     }
 
     public int markAllAsRead() {
@@ -84,7 +102,8 @@ public class NotificationService {
         }
 
         Set<UUID> visibleIds = visibleNotifications.stream().map(NotificationEntity::getId).collect(Collectors.toSet());
-        Set<UUID> readIds = notificationReceiptRepository.findByUserIdAndNotificationIdIn(userId, visibleIds).stream()
+        Set<UUID> readIds = notificationReceiptRepository.findByUserIdAndNotificationIdInAndDeletedAtIsNull(userId,
+                visibleIds).stream()
                 .map(NotificationReceipt::getNotificationId)
                 .collect(Collectors.toSet());
 
@@ -94,6 +113,30 @@ public class NotificationService {
                 .toList();
         notificationReceiptRepository.saveAll(newReceipts);
         return newReceipts.size();
+    }
+
+    public void deleteForCurrentUser(UUID notificationId) {
+        UUID userId = requireCurrentUserId();
+        NotificationEntity notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found"));
+
+        if (!isVisibleToUser(notification, userId, resolveRoles())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Notification does not belong to current user");
+        }
+
+        if (userId.equals(notification.getRecipientUserId())) {
+            notificationRepository.delete(notification);
+            return;
+        }
+
+        NotificationReceipt receipt = notificationReceiptRepository
+                .findByUserIdAndNotificationId(userId, notificationId)
+                .orElseGet(() -> newReceipt(userId, notificationId));
+        if (receipt.getReadAt() == null) {
+            receipt.setReadAt(Instant.now());
+        }
+        receipt.setDeletedAt(Instant.now());
+        notificationReceiptRepository.save(receipt);
     }
 
     public NotificationResponse createUserNotification(
@@ -119,6 +162,26 @@ public class NotificationService {
         notification.setActionUrl(actionUrl);
         notification.setCreatedAt(Instant.now());
         return toResponse(notificationRepository.save(notification), false);
+    }
+
+    public NotificationResponse createCurrentUserNotification(
+            String category,
+            String title,
+            String message,
+            String sourceType,
+            String sourceId,
+            String sourceEventType,
+            String actionUrl) {
+        UUID currentUserId = requireCurrentUserId();
+        return createUserNotification(
+                currentUserId,
+                category,
+                title,
+                message,
+                sourceType,
+                sourceId,
+                sourceEventType,
+                actionUrl);
     }
 
     public NotificationResponse createBroadcastNotification(

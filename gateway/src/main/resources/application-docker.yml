@@ -106,6 +106,33 @@ spring:
           filters:
             - TokenRelay
 
+      default-filters:
+        - RemoveRequestHeader=Cookie
+        - RemoveRequestHeader=Set-Cookie
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_LAST
+        - RequestSize=20MB
+        - name: Retry
+          args:
+            retries: 2
+            statuses: BAD_GATEWAY, GATEWAY_TIMEOUT, SERVICE_UNAVAILABLE
+            methods: GET, POST, PUT, DELETE
+            exceptions: java.net.ConnectException,java.net.SocketTimeoutException,io.netty.channel.ConnectTimeoutException,reactor.netty.http.client.PrematureCloseException
+            backoff:
+              firstBackoff: 150ms
+              maxBackoff: 600ms
+              factor: 2
+
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 30s
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/pharmacy}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/pharmacy/protocol/openid-connect/certs}
+
 server:
   port: 8087
 
@@ -114,6 +141,11 @@ management:
     web:
       exposure:
         include: health,info,refresh,busrefresh,prometheus
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
   endpoint:
     health:
       probes:
