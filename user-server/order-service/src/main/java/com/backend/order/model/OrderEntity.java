@@ -21,6 +21,9 @@ public class OrderEntity {
     @Column(name = "user_id", nullable = false, columnDefinition = "char(36)")
     private UUID userId;
 
+    @Column(name = "order_code", length = 64)
+    private String orderCode;
+
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "branch_id", columnDefinition = "char(36)")
     private UUID branchId;
@@ -119,6 +122,14 @@ public class OrderEntity {
 
     public void setUserId(UUID userId) {
         this.userId = userId;
+    }
+
+    public String getOrderCode() {
+        return orderCode;
+    }
+
+    public void setOrderCode(String orderCode) {
+        this.orderCode = orderCode;
     }
 
     public UUID getBranchId() {

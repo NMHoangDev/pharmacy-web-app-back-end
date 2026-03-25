@@ -1,6 +1,5 @@
 package com.backend.notification.messaging;
 
-import com.backend.common.messaging.EventTypes;
 import com.backend.common.messaging.TopicNames;
 import com.backend.common.model.EventEnvelope;
 import com.backend.notification.service.NotificationService;
@@ -31,7 +30,7 @@ public class ContentEventListener {
     @KafkaListener(topics = TopicNames.CMS_EVENTS, groupId = "notification-service")
     public void onMessage(@Payload EventEnvelope<?> event, Acknowledgment acknowledgment) {
         try {
-            if (!EventTypes.CMS_PUBLISHED.equalsIgnoreCase(event.type())) {
+            if (!NotificationEventTypes.CMS_PUBLISHED.equalsIgnoreCase(event.type())) {
                 acknowledgment.acknowledge();
                 return;
             }

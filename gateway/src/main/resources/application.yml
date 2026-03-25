@@ -10,6 +10,16 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: discount-service-admin
+          uri: ${services.discount.uri:http://localhost:7035}
+          predicates:
+            - Path=/admin/discounts/**
+
+        - id: discount-service-user
+          uri: ${services.discount.uri:http://localhost:7035}
+          predicates:
+            - Path=/user/discounts/**
+
         - id: branch-service-public
           uri: ${services.branch.uri:http://localhost:7030}
           predicates:
@@ -145,6 +155,11 @@ spring:
             retries: 2
             statuses: BAD_GATEWAY, GATEWAY_TIMEOUT, SERVICE_UNAVAILABLE
             methods: GET, POST, PUT, DELETE
+            exceptions: java.net.ConnectException,java.net.SocketTimeoutException,io.netty.channel.ConnectTimeoutException,reactor.netty.http.client.PrematureCloseException
+            backoff:
+              firstBackoff: 150ms
+              maxBackoff: 600ms
+              factor: 2
         - name: CircuitBreaker
           args:
             name: backendCircuitBreaker
@@ -161,6 +176,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/pharmacy}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/pharmacy/protocol/openid-connect/certs}
     keycloak:
       roles-source: realm
       client-id: pharmacy-app
@@ -176,12 +192,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,refresh,busrefresh,prometheus
+        include: health,info,refresh,busrefresh,prometheus,gateway
   health:
     kafka:
       enabled: false
     binders:
       enabled: false
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
   endpoint:
     health:
       show-details: always

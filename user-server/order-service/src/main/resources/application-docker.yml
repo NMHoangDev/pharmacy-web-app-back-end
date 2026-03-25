@@ -1,6 +1,15 @@
 spring:
   application:
     name: order-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/pharmacy}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/pharmacy/protocol/openid-connect/certs}
+    keycloak:
+      roles-source: realm
+      client-id: pharmacy-app
   datasource:
     url: jdbc:mysql://${ORDER_DB_HOST:mysql}:${ORDER_DB_PORT:3306}/order_db
     username: ${ORDER_DB_USER:root}
@@ -26,3 +35,7 @@ order:
     base-url: ${BRANCH_SERVICE_URL:http://branch-service:7030}
   inventory-service:
     base-url: ${INVENTORY_SERVICE_URL:http://inventory-service:7018}
+  catalog-service:
+    base-url: ${CATALOG_SERVICE_URL:http://catalog-service:7017}
+  user-service:
+    base-url: ${USER_SERVICE_URL:http://user-service:7016}

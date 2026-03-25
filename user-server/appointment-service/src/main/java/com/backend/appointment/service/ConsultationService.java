@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,23 +35,25 @@ public class ConsultationService {
     private final PharmacistClient pharmacistClient;
     private final AppointmentAuditService auditService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ChatService chatService;
 
     public ConsultationService(ConsultationSessionRepository sessionRepository,
             AppointmentAccessService appointmentAccessService,
             PharmacistClient pharmacistClient,
             AppointmentAuditService auditService,
-            SimpMessagingTemplate messagingTemplate) {
+            SimpMessagingTemplate messagingTemplate,
+            ChatService chatService) {
         this.sessionRepository = sessionRepository;
         this.appointmentAccessService = appointmentAccessService;
         this.pharmacistClient = pharmacistClient;
         this.auditService = auditService;
         this.messagingTemplate = messagingTemplate;
+        this.chatService = chatService;
     }
 
     @Transactional
     public ConsultationResponse createSession(String appointmentId, String userId, ConsultationRequest request) {
         Appointment appointment = appointmentAccessService.getAppointmentIfAuthorized(appointmentId, userId);
-        appointmentAccessService.validateCallWindow(appointment);
 
         // Return the existing active session so all participants share the same roomId
         Optional<ConsultationSession> existing = sessionRepository
@@ -108,6 +112,37 @@ public class ConsultationService {
 
         session = sessionRepository.save(session);
         broadcastEvent(session.getAppointmentId(), "LEFT", session, userId);
+        return toResponse(session);
+    }
+
+    @Transactional
+    public ConsultationResponse endSession(String roomId, String userId, List<String> clientMessageIds) {
+        ConsultationSession session = sessionRepository.findByRoomId(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+
+        appointmentAccessService.getAppointmentIfAuthorized(session.getAppointmentId(), userId);
+
+        if (!"ENDED".equals(session.getStatus())) {
+            session.setStatus("ENDED");
+            session.setEndedAt(LocalDateTime.now());
+        }
+        session.getParticipants().clear();
+
+        LinkedHashSet<String> idsToDelete = new LinkedHashSet<>();
+        if (session.getMessageIds() != null) {
+            idsToDelete.addAll(session.getMessageIds());
+        }
+        if (clientMessageIds != null) {
+            idsToDelete.addAll(clientMessageIds);
+        }
+
+        if (!idsToDelete.isEmpty()) {
+            chatService.purgeSessionMessages(session.getAppointmentId(), userId, new ArrayList<>(idsToDelete));
+        }
+
+        session.setMessageIds(new ArrayList<>());
+        session = sessionRepository.save(session);
+        broadcastEvent(session.getAppointmentId(), "ENDED", session, userId);
         return toResponse(session);
     }
 

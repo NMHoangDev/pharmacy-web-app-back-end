@@ -3,7 +3,9 @@ package com.backend.appointment.model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -42,6 +44,11 @@ public class ConsultationSession {
     @CollectionTable(name = "consultation_session_participants", joinColumns = @JoinColumn(name = "session_id"))
     @Column(name = "user_id")
     private Set<String> participants = new HashSet<>();
+
+    @ElementCollection
+    @CollectionTable(name = "consultation_session_message_ids", joinColumns = @JoinColumn(name = "session_id"))
+    @Column(name = "message_id", length = 36)
+    private List<String> messageIds = new ArrayList<>();
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private Timestamp createdAt;
@@ -128,5 +135,13 @@ public class ConsultationSession {
 
     public void setParticipants(Set<String> participants) {
         this.participants = participants;
+    }
+
+    public List<String> getMessageIds() {
+        return messageIds;
+    }
+
+    public void setMessageIds(List<String> messageIds) {
+        this.messageIds = messageIds;
     }
 }

@@ -1,5 +1,6 @@
 com\backend\common\model\ErrorCode.class
 com\backend\common\model\PagedResponse.class
 com\backend\common\model\ApiError.class
+com\backend\common\model\CacheInvalidationEvent.class
 com\backend\common\model\PagedRequest.class
 com\backend\common\model\EventEnvelope.class

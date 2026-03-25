@@ -29,11 +29,11 @@ payment:
   events:
     topic: ${PAYMENT_EVENTS_TOPIC:payment.events}
   vnpay:
-    tmn-code: QC6ST9D7
-    hash-secret: YOCVUYXFOGXFQUZXJFXTXKXKXKXKXKXK
+    tmn-code: QJ6WZ8I1
+    hash-secret: ECDPF2OGRKR3S9IZTWSKG9BG51GED68U
     url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-    return-url: https://payments-scuba-reasonably-estimation.trycloudflare.com/api/payments/vnpay/return
-    ipn-url: https://payments-scuba-reasonably-estimation.trycloudflare.com/api/payments/vnpay/ipn
+    return-url: https://pet-conflicts-antarctica-all.trycloudflare.com/api/payments/vnpay/return
+    ipn-url: https://pet-conflicts-antarctica-all.trycloudflare.com/api/payments/vnpay/ipn
     version: 2.1.0
     command: pay
     curr-code: VND
@@ -47,6 +47,10 @@ payment:
     endpoint: ${ZLP_ENDPOINT:https://sb-openapi.zalopay.vn/v2/create}
     callback-url: ${ZLP_CALLBACK_URL:https://your-domain.com/payments/zalopay/callback}
     redirect-url: ${ZLP_REDIRECT_URL:https://your-frontend.com/checkout/result}
+
+order:
+  service:
+    base-url: ${ORDER_SERVICE_URL:http://localhost:7019}
 
 management:
   endpoints:

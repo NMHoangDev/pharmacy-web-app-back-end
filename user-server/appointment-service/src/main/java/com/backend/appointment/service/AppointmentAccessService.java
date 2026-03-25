@@ -23,12 +23,16 @@ public class AppointmentAccessService {
     }
 
     public Appointment getAppointmentIfAuthorized(String appointmentId, String userId) {
+        return getAppointmentIfAuthorized(appointmentId, userId, SecurityUtils.isAdmin());
+    }
+
+    public Appointment getAppointmentIfAuthorized(String appointmentId, String userId, boolean isAdmin) {
         UUID appUuid = UUID.fromString(appointmentId);
         Appointment appointment = appointmentRepository.findById(appUuid)
                 .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
 
         // Admin can access any appointment (observer role)
-        if (SecurityUtils.isAdmin()) {
+        if (isAdmin) {
             return appointment;
         }
 

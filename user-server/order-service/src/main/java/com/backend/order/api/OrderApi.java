@@ -2,8 +2,12 @@ package com.backend.order.api;
 
 import com.backend.order.api.dto.*;
 import com.backend.order.service.OrderService;
+import com.backend.order.service.orderdetail.OrderDetailService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,9 +18,11 @@ import java.util.UUID;
 public class OrderApi {
 
     private final OrderService orderService;
+    private final OrderDetailService orderDetailService;
 
-    public OrderApi(OrderService orderService) {
+    public OrderApi(OrderService orderService, OrderDetailService orderDetailService) {
         this.orderService = orderService;
+        this.orderDetailService = orderDetailService;
     }
 
     @GetMapping("/ping")
@@ -55,12 +61,30 @@ public class OrderApi {
 
     // Order detail
     @GetMapping("/{orderId}")
-    public ResponseEntity<OrderResponse> getOrder(@PathVariable UUID orderId) {
-        return ResponseEntity.ok(orderService.getOrder(orderId));
+    public ResponseEntity<OrderDetailResponse> getOrder(
+            @PathVariable UUID orderId,
+            Authentication authentication) {
+        Jwt jwt = extractJwt(authentication);
+        return ResponseEntity.ok(orderDetailService.getMyOrderDetail(orderId, jwt, authentication));
+    }
+
+    @GetMapping("/my-orders/{orderId}")
+    public ResponseEntity<OrderDetailResponse> getMyOrder(
+            @PathVariable UUID orderId,
+            Authentication authentication) {
+        Jwt jwt = extractJwt(authentication);
+        return ResponseEntity.ok(orderDetailService.getMyOrderDetail(orderId, jwt, authentication));
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<OrderResponse>> listByUser(@PathVariable UUID userId) {
         return ResponseEntity.ok(orderService.listByUser(userId));
+    }
+
+    private Jwt extractJwt(Authentication authentication) {
+        if (authentication instanceof JwtAuthenticationToken jwtAuthenticationToken) {
+            return jwtAuthenticationToken.getToken();
+        }
+        return null;
     }
 }

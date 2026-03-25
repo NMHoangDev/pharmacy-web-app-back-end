@@ -4,7 +4,7 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/notification_db
+    url: jdbc:mysql://127.0.0.1:3306/notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
     password: 160525
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -28,12 +28,12 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/pharmacy}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/pharmacy/protocol/openid-connect/certs}
   jpa:
     hibernate:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
         type:
           preferred_uuid_jdbc_type: CHAR
   sql:
@@ -57,6 +57,15 @@ management:
     web:
       exposure:
         include: health,info,refresh,busrefresh
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  endpoint:
+    health:
+      probes:
+        enabled: true
 notification:
   mail:
     to: test@example.com

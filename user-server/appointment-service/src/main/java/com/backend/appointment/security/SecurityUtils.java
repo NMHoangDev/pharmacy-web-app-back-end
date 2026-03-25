@@ -60,7 +60,7 @@ public final class SecurityUtils {
     }
 
     public static boolean isPharmacist() {
-        return hasRole("PHARMACIST");
+        return hasRole("PHARMACIST") || hasRole("STAFF");
     }
 
     public static boolean isUser() {

@@ -5,6 +5,12 @@ import com.backend.catalog.api.dto.CategoryRequest;
 import com.backend.catalog.api.dto.DrugAdminDto;
 import com.backend.catalog.api.dto.DrugPublicDto;
 import com.backend.catalog.api.dto.DrugRequest;
+import com.backend.catalog.cache.CacheConstants;
+import com.backend.catalog.cache.CacheHelper;
+import com.backend.catalog.cache.CacheInvalidationEvent;
+import com.backend.catalog.cache.CacheKeyBuilder;
+import com.backend.common.messaging.EventTypes;
+import com.backend.common.model.EventEnvelope;
 import com.backend.catalog.model.Category;
 import com.backend.catalog.model.Drug;
 import com.backend.catalog.model.DrugBranchSetting;
@@ -13,6 +19,7 @@ import com.backend.catalog.repo.DrugBranchSettingRepository;
 import com.backend.catalog.repo.DrugRepository;
 import com.backend.catalog.repo.DrugWithBranchView;
 import jakarta.transaction.Transactional;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -31,26 +38,38 @@ public class CatalogService {
     private final CategoryRepository categoryRepository;
     private final DrugRepository drugRepository;
     private final DrugBranchSettingRepository drugBranchSettingRepository;
+    private final CacheHelper cacheHelper;
+    private final CacheKeyBuilder cacheKeyBuilder;
+    private final KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate;
 
     private static final UUID DEFAULT_BRANCH_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     public CatalogService(CategoryRepository categoryRepository, DrugRepository drugRepository,
-            DrugBranchSettingRepository drugBranchSettingRepository) {
+            DrugBranchSettingRepository drugBranchSettingRepository, CacheHelper cacheHelper,
+            CacheKeyBuilder cacheKeyBuilder,
+            KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate) {
         this.categoryRepository = categoryRepository;
         this.drugRepository = drugRepository;
         this.drugBranchSettingRepository = drugBranchSettingRepository;
+        this.cacheHelper = cacheHelper;
+        this.cacheKeyBuilder = cacheKeyBuilder;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     // Public queries
     public List<Category> listPublicCategories() {
-        return categoryRepository.findByActiveTrueOrderBySortOrderAscNameAsc();
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKeyBuilder.build("category", "list", "active"),
+                CacheConstants.TTL_CATEGORY_LIST,
+                categoryRepository::findByActiveTrueOrderBySortOrderAscNameAsc);
     }
 
     public Page<DrugPublicDto> searchPublicProducts(String q, UUID categoryId, UUID branchId, Pageable pageable) {
         String keyword = normalizeKeyword(q);
         UUID resolvedBranchId = resolveBranchId(branchId);
-        return drugRepository.searchPublicByBranch(keyword, categoryId, resolvedBranchId, pageable)
-                .map(view -> toPublicDto(view, resolvedBranchId));
+        String cacheKey = buildPublicListCacheKey(keyword, categoryId, resolvedBranchId, pageable);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_PRODUCT_LIST,
+                () -> drugRepository.searchPublicByBranch(keyword, categoryId, resolvedBranchId, pageable)
+                        .map(view -> toPublicDto(view, resolvedBranchId)));
     }
 
     public Page<DrugAdminDto> searchProducts(String q, UUID categoryId, String status, UUID branchId,
@@ -64,12 +83,15 @@ public class CatalogService {
 
     public DrugPublicDto getPublicProduct(String idOrSlug, UUID branchId) {
         UUID resolvedBranchId = resolveBranchId(branchId);
-        DrugWithBranchView view = findWithBranchByIdOrSlug(idOrSlug, resolvedBranchId);
-        String effectiveStatus = resolveEffectiveStatus(view);
-        if (!"ACTIVE".equalsIgnoreCase(effectiveStatus)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại");
-        }
-        return toPublicDto(view, resolvedBranchId);
+        String cacheKey = cacheKeyBuilder.build("product", "detail", idOrSlug, "branch", resolvedBranchId);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_PRODUCT_DETAIL, () -> {
+            DrugWithBranchView view = findWithBranchByIdOrSlug(idOrSlug, resolvedBranchId);
+            String effectiveStatus = resolveEffectiveStatus(view);
+            if (!"ACTIVE".equalsIgnoreCase(effectiveStatus)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại");
+            }
+            return toPublicDto(view, resolvedBranchId);
+        });
     }
 
     public DrugAdminDto getDrug(UUID id, UUID branchId) {
@@ -123,7 +145,9 @@ public class CatalogService {
         c.setActive(req.active() == null || req.active());
         c.setSortOrder(req.sortOrder() == null ? 0 : req.sortOrder());
         c.setCreatedAt(Instant.now());
-        return categoryRepository.save(c);
+        Category saved = categoryRepository.save(c);
+        invalidateCatalogCaches();
+        return saved;
     }
 
     public List<Category> listCategories() {
@@ -163,7 +187,9 @@ public class CatalogService {
         c.setDescription(req.description() == null ? "" : req.description().trim());
         c.setActive(req.active() == null || req.active());
         c.setSortOrder(req.sortOrder() == null ? 0 : req.sortOrder());
-        return categoryRepository.save(c);
+        Category saved = categoryRepository.save(c);
+        invalidateCatalogCaches();
+        return saved;
     }
 
     public void deleteCategory(UUID id) {
@@ -172,6 +198,7 @@ public class CatalogService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Danh mục có danh mục con, không thể xóa");
         }
         categoryRepository.deleteById(safeId);
+        invalidateCatalogCaches();
     }
 
     // Drug
@@ -214,6 +241,8 @@ public class CatalogService {
         d.setCreatedAt(Instant.now());
         d.setUpdatedAt(Instant.now());
         Drug saved = drugRepository.save(d);
+        invalidateProductCaches(saved.getId(), saved.getSlug());
+        publishProductCacheInvalidation(EventTypes.PRODUCT_CREATED, saved.getId());
         return toAdminDto(saved, DEFAULT_BRANCH_ID);
     }
 
@@ -261,11 +290,17 @@ public class CatalogService {
         d.setAttributes(req.attributes());
         d.setUpdatedAt(Instant.now());
         Drug saved = drugRepository.save(d);
+        invalidateProductCaches(saved.getId(), saved.getSlug());
+        publishProductCacheInvalidation(EventTypes.PRODUCT_UPDATED, saved.getId());
         return toAdminDto(saved, DEFAULT_BRANCH_ID);
     }
 
     public void deleteDrug(UUID id) {
-        drugRepository.deleteById(Objects.requireNonNull(id, "id"));
+        UUID safeId = Objects.requireNonNull(id, "id");
+        drugRepository.findById(safeId).ifPresent(drug -> invalidateProductCaches(drug.getId(), drug.getSlug()));
+        drugRepository.deleteById(safeId);
+        invalidateCatalogCaches();
+        publishProductCacheInvalidation(EventTypes.PRODUCT_DELETED, safeId);
     }
 
     public DrugAdminDto upsertBranchSetting(UUID drugId, BranchSettingRequest req) {
@@ -294,6 +329,7 @@ public class CatalogService {
         setting.setNote(req.note());
         setting.setUpdatedAt(Instant.now());
         drugBranchSettingRepository.save(setting);
+        invalidateProductCaches(drugId, null);
         return getDrug(drugId, req.branchId());
     }
 
@@ -303,6 +339,45 @@ public class CatalogService {
         }
         drugBranchSettingRepository.findByDrugIdAndBranchId(drugId, branchId)
                 .ifPresent(drugBranchSettingRepository::delete);
+        invalidateProductCaches(drugId, null);
+    }
+
+    private String buildPublicListCacheKey(String keyword, UUID categoryId, UUID branchId, Pageable pageable) {
+        String sort = pageable.getSort() == null ? "unsorted" : pageable.getSort().toString();
+        return cacheKeyBuilder.build("product", "list",
+                "page", pageable.getPageNumber(),
+                "size", pageable.getPageSize(),
+                "q", (keyword == null ? "_" : keyword),
+                "category", (categoryId == null ? "_" : categoryId),
+                "branch", branchId,
+                "sort", sort);
+    }
+
+    private void invalidateCatalogCaches() {
+        cacheHelper.evict(cacheKeyBuilder.build("category", "list", "active"));
+        cacheHelper.evictByPattern(cacheKeyBuilder.pattern("product", "list"));
+    }
+
+    private void invalidateProductCaches(UUID drugId, String slug) {
+        cacheHelper.evictByPattern(cacheKeyBuilder.pattern("product", "list"));
+        if (drugId != null) {
+            cacheHelper.evictByPattern(cacheKeyBuilder.pattern("product", "detail", drugId));
+        }
+        if (slug != null && !slug.isBlank()) {
+            cacheHelper.evictByPattern(cacheKeyBuilder.pattern("product", "detail", slug));
+        }
+    }
+
+    private void publishProductCacheInvalidation(String eventType, UUID productId) {
+        try {
+            CacheInvalidationEvent event = new CacheInvalidationEvent(
+                    "product",
+                    eventType,
+                    productId == null ? null : productId.toString());
+            kafkaTemplate.send(CacheConstants.CACHE_INVALIDATION_TOPIC, EventEnvelope.of(eventType, "1", event));
+        } catch (Exception ex) {
+            // Do not fail write transactions when Kafka is unavailable.
+        }
     }
 
     private String normalizeKeyword(String q) {

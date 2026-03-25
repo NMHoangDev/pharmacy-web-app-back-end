@@ -12,8 +12,11 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.backend.appointment.api.dto.MessageNote;
+import com.backend.appointment.repo.ConsultationSessionRepository;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -22,15 +25,18 @@ import java.util.stream.Collectors;
 public class ChatService {
 
     private final ChatMessageRepository chatMessageRepository;
+    private final ConsultationSessionRepository consultationSessionRepository;
     private final AppointmentAccessService appointmentAccessService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
 
     public ChatService(ChatMessageRepository chatMessageRepository,
+            ConsultationSessionRepository consultationSessionRepository,
             AppointmentAccessService appointmentAccessService,
             SimpMessagingTemplate messagingTemplate,
             ObjectMapper objectMapper) {
         this.chatMessageRepository = chatMessageRepository;
+        this.consultationSessionRepository = consultationSessionRepository;
         this.appointmentAccessService = appointmentAccessService;
         this.messagingTemplate = messagingTemplate;
         this.objectMapper = objectMapper;
@@ -79,12 +85,50 @@ public class ChatService {
         message.setCreatedAt(Timestamp.from(Instant.now()));
 
         ChatMessage saved = chatMessageRepository.save(message);
+        trackMessageIdInLatestSession(appointmentId, saved.getId());
         MessageResponse response = toResponse(saved);
 
         // Broadcast to /topic/appointments/{appointmentId}/chat
         messagingTemplate.convertAndSend("/topic/appointments/" + appointmentId + "/chat", response);
 
         return response;
+    }
+
+    public long purgeSessionMessages(String appointmentId, String actorId, List<String> messageIds) {
+        appointmentAccessService.getAppointmentIfAuthorized(appointmentId, actorId);
+
+        if (messageIds == null || messageIds.isEmpty()) {
+            return 0L;
+        }
+
+        LinkedHashSet<String> uniqueIds = messageIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (uniqueIds.isEmpty()) {
+            return 0L;
+        }
+
+        return chatMessageRepository.deleteByAppointmentIdAndIdIn(appointmentId, uniqueIds);
+    }
+
+    private void trackMessageIdInLatestSession(String appointmentId, String messageId) {
+        if (messageId == null || messageId.isBlank()) {
+            return;
+        }
+
+        consultationSessionRepository.findTopByAppointmentIdOrderByCreatedAtDesc(appointmentId)
+                .ifPresent(session -> {
+                    List<String> ids = session.getMessageIds();
+                    if (ids == null) {
+                        ids = new ArrayList<>();
+                        session.setMessageIds(ids);
+                    }
+                    if (!ids.contains(messageId)) {
+                        ids.add(messageId);
+                        consultationSessionRepository.save(session);
+                    }
+                });
     }
 
     private MessageResponse toResponse(ChatMessage entity) {

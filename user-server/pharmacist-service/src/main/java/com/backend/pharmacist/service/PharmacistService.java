@@ -1,6 +1,7 @@
 package com.backend.pharmacist.service;
 
 import com.backend.pharmacist.api.dto.*;
+import com.backend.pharmacist.cache.CacheHelper;
 import com.backend.pharmacist.model.Pharmacist;
 import com.backend.pharmacist.model.PharmacistShift;
 import com.backend.pharmacist.repo.PharmacistRepository;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -31,16 +33,22 @@ public class PharmacistService {
     private final PharmacistShiftRepository shiftRepo;
     private final ObjectMapper mapper;
     private final BranchClient branchClient;
+    private final CacheHelper cacheHelper;
+
+    @Value("${cache.ttl-seconds:600}")
+    private long cacheTtlSeconds;
 
     public PharmacistService(
             PharmacistRepository pharmacistRepo,
             PharmacistShiftRepository shiftRepo,
             ObjectMapper mapper,
-            BranchClient branchClient) {
+            BranchClient branchClient,
+            CacheHelper cacheHelper) {
         this.pharmacistRepo = pharmacistRepo;
         this.shiftRepo = shiftRepo;
         this.mapper = mapper;
         this.branchClient = branchClient;
+        this.cacheHelper = cacheHelper;
     }
 
     public Page<PharmacistResponse> list(
@@ -58,9 +66,20 @@ public class PharmacistService {
         if (branchId != null && (pharmacistIds == null || pharmacistIds.isEmpty())) {
             return Page.empty(pageable);
         }
-        Specification<Pharmacist> spec = buildSpec(query, specialty, status, mode, experience, verified,
-                pharmacistIds);
-        return pharmacistRepo.findAll(spec, pageable).map(this::toResponse);
+        String cacheKey = "pharmacist:pharmacist:list:query:" + normalizeKey(query)
+                + ":specialty:" + normalizeKey(specialty)
+                + ":status:" + normalizeKey(status)
+                + ":mode:" + normalizeKey(mode)
+                + ":experience:" + normalizeKey(experience)
+                + ":verified:" + (verified == null ? "_" : verified)
+                + ":branch:" + (branchId == null ? "_" : branchId)
+                + ":page:" + page
+                + ":size:" + size;
+        return cacheHelper.getOrSetCache(cacheKey, cacheTtlSeconds, () -> {
+            Specification<Pharmacist> spec = buildSpec(query, specialty, status, mode, experience, verified,
+                    pharmacistIds);
+            return pharmacistRepo.findAll(spec, pageable).map(this::toResponse);
+        });
     }
 
     public List<PharmacistResponse> listOnline(int limit, UUID branchId) {
@@ -69,14 +88,19 @@ public class PharmacistService {
         if (branchId != null && (pharmacistIds == null || pharmacistIds.isEmpty())) {
             return List.of();
         }
-        Specification<Pharmacist> spec = buildSpec(null, null, "ONLINE", null, null, true, pharmacistIds);
-        return pharmacistRepo.findAll(spec, pageable).map(this::toResponse).getContent();
+        String cacheKey = "pharmacist:pharmacist:list:online:limit:" + limit
+                + ":branch:" + (branchId == null ? "_" : branchId);
+        return cacheHelper.getOrSetCache(cacheKey, cacheTtlSeconds, () -> {
+            Specification<Pharmacist> spec = buildSpec(null, null, "ONLINE", null, null, true, pharmacistIds);
+            return pharmacistRepo.findAll(spec, pageable).map(this::toResponse).getContent();
+        });
     }
 
     public PharmacistResponse get(UUID id) {
-        return pharmacistRepo.findById(id)
-                .map(this::toResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pharmacist not found"));
+        return cacheHelper.getOrSetCache("pharmacist:pharmacist:detail:" + id, cacheTtlSeconds,
+                () -> pharmacistRepo.findById(id)
+                        .map(this::toResponse)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pharmacist not found")));
     }
 
     public PharmacistResponse create(UpsertPharmacistRequest request) {
@@ -84,6 +108,7 @@ public class PharmacistService {
         pharmacist.setId(UUID.randomUUID());
         applyRequest(pharmacist, request, true);
         pharmacistRepo.save(pharmacist);
+        invalidatePharmacistCaches(pharmacist.getId());
         return toResponse(pharmacist);
     }
 
@@ -92,6 +117,7 @@ public class PharmacistService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pharmacist not found"));
         applyRequest(pharmacist, request, false);
         pharmacistRepo.save(pharmacist);
+        invalidatePharmacistCaches(pharmacist.getId());
         return toResponse(pharmacist);
     }
 
@@ -100,6 +126,7 @@ public class PharmacistService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pharmacist not found");
         }
         pharmacistRepo.deleteById(id);
+        invalidatePharmacistCaches(id);
     }
 
     public PharmacistResponse updateVerification(UUID id, boolean verified) {
@@ -108,6 +135,7 @@ public class PharmacistService {
         pharmacist.setVerified(verified);
         pharmacist.setUpdatedAt(Instant.now());
         pharmacistRepo.save(pharmacist);
+        invalidatePharmacistCaches(pharmacist.getId());
         return toResponse(pharmacist);
     }
 
@@ -127,6 +155,7 @@ public class PharmacistService {
         }
         pharmacist.setUpdatedAt(Instant.now());
         pharmacistRepo.save(pharmacist);
+        invalidatePharmacistCaches(pharmacist.getId());
         return toResponse(pharmacist);
     }
 
@@ -241,6 +270,17 @@ public class PharmacistService {
 
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private String normalizeKey(String value) {
+        return StringUtils.hasText(value) ? value.trim().toLowerCase() : "_";
+    }
+
+    private void invalidatePharmacistCaches(UUID pharmacistId) {
+        cacheHelper.evictByPattern("pharmacist:pharmacist:list:*");
+        if (pharmacistId != null) {
+            cacheHelper.evict("pharmacist:pharmacist:detail:" + pharmacistId);
+        }
     }
 
     private PharmacistResponse toResponse(Pharmacist pharmacist) {

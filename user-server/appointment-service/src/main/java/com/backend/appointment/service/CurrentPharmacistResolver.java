@@ -20,6 +20,21 @@ public class CurrentPharmacistResolver {
 
     public UUID resolveForCurrentActor() {
         UUID actorId = SecurityUtils.getActorId();
+        String email = SecurityUtils.getActorEmail();
+        return resolveForActor(
+                actorId != null ? actorId.toString() : null,
+                email);
+    }
+
+    public UUID resolveForActor(String actorSubject, String actorEmail) {
+        UUID actorId = null;
+        if (actorSubject != null && !actorSubject.isBlank()) {
+            try {
+                actorId = UUID.fromString(actorSubject.trim());
+            } catch (IllegalArgumentException ignored) {
+                actorId = null;
+            }
+        }
 
         if (actorId != null) {
             try {
@@ -31,7 +46,7 @@ public class CurrentPharmacistResolver {
             }
         }
 
-        String email = SecurityUtils.getActorEmail();
+        String email = actorEmail;
         if (email == null || email.isBlank()) {
             return null;
         }
@@ -51,10 +66,15 @@ public class CurrentPharmacistResolver {
                 }
             }
 
-            return list.isEmpty() ? null : list.get(0).id();
+            if (!list.isEmpty() && list.get(0) != null && list.get(0).id() != null) {
+                return list.get(0).id();
+            }
         } catch (Exception ignored) {
-            return null;
         }
+
+        // Final fallback for environments where appointment.pharmacistId stores
+        // the same UUID as the authenticated Keycloak subject.
+        return actorId;
     }
 
     public boolean canAccessPharmacistId(UUID pharmacistId) {

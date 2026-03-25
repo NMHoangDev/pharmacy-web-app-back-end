@@ -61,16 +61,34 @@ public class AppointmentController {
     }
 
     @GetMapping("/pharmacist/{pharmacistId}")
-    @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
+    @PreAuthorize("hasAnyRole('PHARMACIST','STAFF','ADMIN')")
     public ResponseEntity<Page<AppointmentResponse>> byPharmacist(@PathVariable UUID pharmacistId,
             @RequestParam(required = false) UUID branchId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        if (!SecurityUtils.isAdmin() && !pharmacistResolver.canAccessPharmacistId(pharmacistId)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Not allowed");
+        }
+        return ResponseEntity.ok(service.listByPharmacist(pharmacistId, branchId, page, size));
+    }
+
+    @GetMapping("/pharmacist/me")
+    @PreAuthorize("hasAnyRole('PHARMACIST','STAFF','ADMIN')")
+    public ResponseEntity<Page<AppointmentResponse>> myAppointments(
+            @RequestParam(required = false) UUID branchId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        UUID pharmacistId = pharmacistResolver.resolveForCurrentActor();
+        if (pharmacistId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Unable to resolve pharmacist identity");
+        }
         return ResponseEntity.ok(service.listByPharmacist(pharmacistId, branchId, page, size));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PHARMACIST','USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('PHARMACIST','STAFF','USER','ADMIN')")
     public ResponseEntity<AppointmentResponse> get(@PathVariable UUID id) {
         boolean includeNotes = SecurityUtils.isPharmacist();
         if (!SecurityUtils.isAdmin() && !SecurityUtils.isPharmacist()) {
@@ -80,7 +98,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/confirm")
-    @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
+    @PreAuthorize("hasAnyRole('PHARMACIST','STAFF','ADMIN')")
     public ResponseEntity<AppointmentResponse> confirm(@PathVariable UUID id, HttpServletRequest request) {
         if (SecurityUtils.isPharmacist()) {
             accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
@@ -89,7 +107,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('USER','PHARMACIST','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','PHARMACIST','STAFF','ADMIN')")
     public ResponseEntity<AppointmentResponse> cancel(@PathVariable UUID id,
             @RequestBody(required = false) CancelRequest body,
             HttpServletRequest request) {
@@ -102,7 +120,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/reschedule")
-    @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
+    @PreAuthorize("hasAnyRole('PHARMACIST','STAFF','ADMIN')")
     public ResponseEntity<AppointmentResponse> reschedule(@PathVariable UUID id,
             @RequestBody @Valid RescheduleRequest body,
             HttpServletRequest request) {
@@ -114,7 +132,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/start")
-    @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
+    @PreAuthorize("hasAnyRole('PHARMACIST','STAFF','ADMIN')")
     public ResponseEntity<AppointmentResponse> start(@PathVariable UUID id, HttpServletRequest request) {
         if (SecurityUtils.isPharmacist()) {
             accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
@@ -123,7 +141,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/complete")
-    @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
+    @PreAuthorize("hasAnyRole('PHARMACIST','STAFF','ADMIN')")
     public ResponseEntity<AppointmentResponse> complete(@PathVariable UUID id, HttpServletRequest request) {
         if (SecurityUtils.isPharmacist()) {
             accessService.requirePharmacist(id, pharmacistResolver.resolveForCurrentActor());
@@ -132,7 +150,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/{id}/notes")
-    @PreAuthorize("hasAnyRole('PHARMACIST','ADMIN')")
+    @PreAuthorize("hasAnyRole('PHARMACIST','STAFF','ADMIN')")
     public ResponseEntity<String> getNotes(@PathVariable UUID id,
             @RequestParam(required = false) String reason,
             HttpServletRequest request) {

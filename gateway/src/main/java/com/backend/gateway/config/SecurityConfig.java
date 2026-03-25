@@ -35,6 +35,8 @@ public class SecurityConfig {
                                                 // Public
                                                 .pathMatchers("/actuator/health/**", "/actuator/info/**", "/fallback")
                                                 .permitAll()
+                                                .pathMatchers("/ws", "/ws/**")
+                                                .permitAll()
                                                 .pathMatchers("/api/auth/**").permitAll()
                                                 .pathMatchers(HttpMethod.GET, "/api/branches/**", "/api/branches")
                                                 .permitAll()
@@ -50,6 +52,11 @@ public class SecurityConfig {
                                                 .pathMatchers(HttpMethod.POST, "/api/content/posts/*/view")
                                                 .permitAll()
                                                 .pathMatchers(HttpMethod.OPTIONS).permitAll()
+
+                                                // DISCOUNT (non-/api prefixed)
+                                                .pathMatchers(HttpMethod.GET, "/user/discounts/campaigns").permitAll()
+                                                .pathMatchers("/admin/**").hasRole("ADMIN")
+                                                .pathMatchers("/user/**").hasAnyRole("USER", "ADMIN")
 
                                                 // ADMIN
                                                 .pathMatchers("/api/reviews/internal/**")

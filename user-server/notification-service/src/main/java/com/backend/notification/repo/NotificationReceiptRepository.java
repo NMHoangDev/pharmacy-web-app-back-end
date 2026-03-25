@@ -12,5 +12,10 @@ public interface NotificationReceiptRepository extends JpaRepository<Notificatio
 
     List<NotificationReceipt> findByUserIdAndNotificationIdIn(UUID userId, Collection<UUID> notificationIds);
 
+    List<NotificationReceipt> findByUserIdAndNotificationIdInAndDeletedAtIsNull(UUID userId,
+            Collection<UUID> notificationIds);
+
     Optional<NotificationReceipt> findByUserIdAndNotificationId(UUID userId, UUID notificationId);
+
+    Optional<NotificationReceipt> findByUserIdAndNotificationIdAndDeletedAtIsNull(UUID userId, UUID notificationId);
 }

@@ -1,6 +1,9 @@
 package com.backend.inventory.service;
 
 import com.backend.inventory.api.dto.*;
+import com.backend.inventory.cache.CacheConstants;
+import com.backend.inventory.cache.CacheHelper;
+import com.backend.inventory.cache.CacheKeyBuilder;
 import com.backend.inventory.model.*;
 import com.backend.inventory.repo.InventoryActivityRepository;
 import com.backend.inventory.repo.InventoryItemRepository;
@@ -29,6 +32,8 @@ public class InventoryService {
     private final ReservationLineRepository lineRepo;
     private final InventoryActivityRepository activityRepo;
     private final BranchClient branchClient;
+    private final CacheHelper cacheHelper;
+    private final CacheKeyBuilder cacheKeyBuilder;
     private final UUID defaultBranchId;
 
     public InventoryService(InventoryItemRepository inventoryRepo,
@@ -36,12 +41,16 @@ public class InventoryService {
             ReservationLineRepository lineRepo,
             InventoryActivityRepository activityRepo,
             BranchClient branchClient,
+            CacheHelper cacheHelper,
+            CacheKeyBuilder cacheKeyBuilder,
             @Value("${inventory.default-branch-id}") UUID defaultBranchId) {
         this.inventoryRepo = inventoryRepo;
         this.reservationRepo = reservationRepo;
         this.lineRepo = lineRepo;
         this.activityRepo = activityRepo;
         this.branchClient = branchClient;
+        this.cacheHelper = cacheHelper;
+        this.cacheKeyBuilder = cacheKeyBuilder;
         this.defaultBranchId = defaultBranchId;
     }
 
@@ -79,6 +88,8 @@ public class InventoryService {
             logActivity(item.getProductId(), 0, "RESERVE", req.reason(), item.getOnHand(), item.getReserved(),
                     "ORDER", req.orderId(), req.actor(), branchId, null, null);
         }
+
+        invalidateInventoryCaches(branchId, productIds);
 
         UUID reservationId = UUID.randomUUID();
         Reservation reservation = new Reservation(
@@ -135,18 +146,22 @@ public class InventoryService {
             return new AvailabilityResponse(List.of());
         }
         UUID branchId = resolveBranchId(branchIdInput);
-        List<InventoryItem> items = inventoryRepo.findByBranchIdAndProductIdIn(branchId, productIds);
-        Map<UUID, InventoryItem> byId = items.stream().collect(Collectors.toMap(InventoryItem::getProductId, i -> i));
-        List<AvailabilityItem> result = productIds.stream()
-                .map(pid -> {
-                    InventoryItem item = byId.get(pid);
-                    int onHand = item == null ? 0 : item.getOnHand();
-                    int reserved = item == null ? 0 : item.getReserved();
-                    int available = Math.max(0, onHand - reserved);
-                    return new AvailabilityItem(pid, available, onHand, reserved);
-                })
-                .toList();
-        return new AvailabilityResponse(result);
+        String cacheKey = buildAvailabilityCacheKey(branchId, productIds);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_INVENTORY_PRODUCT, () -> {
+            List<InventoryItem> items = inventoryRepo.findByBranchIdAndProductIdIn(branchId, productIds);
+            Map<UUID, InventoryItem> byId = items.stream()
+                    .collect(Collectors.toMap(InventoryItem::getProductId, i -> i));
+            List<AvailabilityItem> result = productIds.stream()
+                    .map(pid -> {
+                        InventoryItem item = byId.get(pid);
+                        int onHand = item == null ? 0 : item.getOnHand();
+                        int reserved = item == null ? 0 : item.getReserved();
+                        int available = Math.max(0, onHand - reserved);
+                        return new AvailabilityItem(pid, available, onHand, reserved);
+                    })
+                    .toList();
+            return new AvailabilityResponse(result);
+        });
     }
 
     public AvailabilityBatchResponse availabilityBatch(AvailabilityBatchRequest request) {
@@ -199,6 +214,7 @@ public class InventoryService {
         logActivity(item.getProductId(), req.delta(), resolveActivityType(req.delta(), req.reason()),
                 req.reason(), item.getOnHand(), item.getReserved(), req.refType(), req.refId(), req.actor(),
                 branchId, req.batchNo(), req.expiryDate());
+        invalidateInventoryCaches(branchId, List.of(req.productId()));
         return new AdjustResponse(item.getProductId(), item.getOnHand(), item.getReserved());
     }
 
@@ -215,21 +231,33 @@ public class InventoryService {
         inventoryRepo.deleteById(id);
         logActivity(productId, 0, "DELETE", "Removed from inventory", item.getOnHand(), item.getReserved(),
                 null, null, null, branchId, null, null);
+        invalidateInventoryCaches(branchId, List.of(productId));
         return true;
     }
 
     public List<InventoryActivityResponse> listActivities(UUID productId, UUID branchIdInput, int limit) {
         int safeLimit = Math.max(1, Math.min(limit <= 0 ? 20 : limit, 200));
-        Pageable pageable = PageRequest.of(0, safeLimit);
         UUID branchId = resolveBranchId(branchIdInput);
-        List<InventoryActivity> activities = productId == null
-                ? activityRepo.findRecentByBranchId(branchId, pageable)
-                : activityRepo.findRecentByBranchIdAndProductId(branchId, productId, pageable);
-        return activities.stream()
-                .map(a -> new InventoryActivityResponse(a.getId(), a.getProductId(), a.getType(), a.getDelta(),
-                        a.getOnHandAfter(), a.getReservedAfter(), a.getReason(), a.getRefType(), a.getRefId(),
-                        a.getActor(), a.getBranchId(), a.getBatchNo(), a.getExpiryDate(), a.getCreatedAt()))
-                .toList();
+        String cacheKey = cacheKeyBuilder.build(
+                "inventory",
+                "branch",
+                branchId,
+                "activities",
+                "product",
+                (productId == null ? "all" : productId),
+                "limit",
+                safeLimit);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_INVENTORY_ACTIVITY, () -> {
+            Pageable pageable = PageRequest.of(0, safeLimit);
+            List<InventoryActivity> activities = productId == null
+                    ? activityRepo.findRecentByBranchId(branchId, pageable)
+                    : activityRepo.findRecentByBranchIdAndProductId(branchId, productId, pageable);
+            return activities.stream()
+                    .map(a -> new InventoryActivityResponse(a.getId(), a.getProductId(), a.getType(), a.getDelta(),
+                            a.getOnHandAfter(), a.getReservedAfter(), a.getReason(), a.getRefType(), a.getRefId(),
+                            a.getActor(), a.getBranchId(), a.getBatchNo(), a.getExpiryDate(), a.getCreatedAt()))
+                    .toList();
+        });
     }
 
     private void logActivity(UUID productId, int delta, String type, String reason, int onHand, int reserved,
@@ -297,6 +325,24 @@ public class InventoryService {
                     actor, branchId, null, null);
         }
         inventoryRepo.saveAll(byId.values());
+        invalidateInventoryCaches(branchId, productIds);
+    }
+
+    private String buildAvailabilityCacheKey(UUID branchId, List<UUID> productIds) {
+        List<String> sorted = productIds.stream().map(UUID::toString).sorted().toList();
+        return cacheKeyBuilder.build("inventory", "product", "branch", branchId, "ids", String.join(",", sorted));
+    }
+
+    private void invalidateInventoryCaches(UUID branchId, List<UUID> productIds) {
+        cacheHelper.evictByPattern(cacheKeyBuilder.pattern("inventory", "branch", branchId));
+        if (productIds != null) {
+            for (UUID productId : productIds) {
+                if (productId != null) {
+                    cacheHelper.evictByPattern(
+                            cacheKeyBuilder.pattern("inventory", "product", "branch", "*", "id", productId));
+                }
+            }
+        }
     }
 
     private String resolveRefType(UUID orderId) {

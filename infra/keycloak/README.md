@@ -10,7 +10,7 @@ Navigate to this directory and run:
 docker-compose up -d
 ```
 
-Keycloak will be available at [http://localhost:8080](http://localhost:8080).
+Keycloak will be available at [http://localhost:8180](http://localhost:8180).
 Admin Console credentials: `admin` / `admin`.
 
 The realm `pharmacy` will be automatically imported on startup.
@@ -28,7 +28,7 @@ The realm `pharmacy` will be automatically imported on startup.
 To obtain a token via Password Grant (for development/testing):
 
 ```bash
-curl -X POST http://localhost:8080/realms/pharmacy/protocol/openid-connect/token \
+curl -X POST http://localhost:8180/realms/pharmacy/protocol/openid-connect/token \
   -d "client_id=pharmacy-app" \
   -d "client_secret=G6Z8zQp4S9yV2W5vB7n3m1X0kC8jL5hR" \
   -d "username=admin@local.test" \

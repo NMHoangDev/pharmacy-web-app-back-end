@@ -34,6 +34,9 @@ public class NotificationReceipt {
     @Column(name = "read_at", nullable = false)
     private Instant readAt;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     public UUID getId() {
         return id;
     }
@@ -64,5 +67,13 @@ public class NotificationReceipt {
 
     public void setReadAt(Instant readAt) {
         this.readAt = readAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
     }
 }
