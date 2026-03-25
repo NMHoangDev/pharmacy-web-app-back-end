@@ -182,6 +182,15 @@ public class OrderService {
                 OrderEntity order = orderRepository.findById(requireId(req.orderId(), "orderId required"))
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                 "Order not found"));
+
+                // Idempotency: if already paid/confirmed, do not create duplicate payment
+                // records/events.
+                if (PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())
+                                || order.getStatus() == OrderStatus.CONFIRMED
+                                || order.getStatus() == OrderStatus.COMPLETED) {
+                        return new CheckoutResponse(order.getId(), order.getStatus().name());
+                }
+
                 order.setStatus(OrderStatus.CONFIRMED);
                 order.setUpdatedAt(Instant.now());
                 order.setPaymentMethod(req.provider());

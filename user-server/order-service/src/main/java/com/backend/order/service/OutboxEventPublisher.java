@@ -1,13 +1,13 @@
 package com.backend.order.service;
 
 import com.backend.common.model.EventEnvelope;
-import com.backend.common.messaging.TopicNames;
 import com.backend.order.model.OutboxEvent;
 import com.backend.order.repo.OutboxEventRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -24,6 +24,14 @@ public class OutboxEventPublisher {
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate;
     private final ObjectMapper objectMapper;
+
+    /**
+     * Resolve topic name from config with a stable default.
+     * This avoids compilation/runtime coupling to a potentially stale
+     * common-messaging JAR.
+     */
+    @Value("${kafka.topics.order-events:order.events}")
+    private String orderEventsTopic;
 
     public OutboxEventPublisher(
             OutboxEventRepository outboxEventRepository,
@@ -42,7 +50,7 @@ public class OutboxEventPublisher {
             try {
                 Map<String, Object> payload = objectMapper.readValue(event.getPayload(), new TypeReference<>() {
                 });
-                kafkaTemplate.send(TopicNames.ORDER_EVENTS, EventEnvelope.of(event.getEventType(), "1", payload));
+                kafkaTemplate.send(orderEventsTopic, EventEnvelope.of(event.getEventType(), "1", payload));
                 event.setStatus("SENT");
             } catch (Exception ex) {
                 event.setStatus("FAILED");

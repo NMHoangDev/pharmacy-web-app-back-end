@@ -1,11 +1,13 @@
 package com.backend.branch.service;
 
 import com.backend.branch.api.dto.*;
+import com.backend.branch.cache.CacheHelper;
 import com.backend.branch.event.BranchEventPayload;
 import com.backend.branch.event.BranchEventPublisher;
 import com.backend.branch.model.*;
 import com.backend.branch.repo.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -29,6 +31,10 @@ public class BranchService {
     private final BranchStaffRepository branchStaffRepository;
     private final BranchAuditLogRepository branchAuditLogRepository;
     private final BranchEventPublisher eventPublisher;
+    private final CacheHelper cacheHelper;
+
+    @Value("${cache.ttl-seconds:600}")
+    private long cacheTtlSeconds;
 
     public BranchService(BranchRepository branchRepository,
             BranchSettingsRepository branchSettingsRepository,
@@ -36,7 +42,8 @@ public class BranchService {
             BranchHolidayRepository branchHolidayRepository,
             BranchStaffRepository branchStaffRepository,
             BranchAuditLogRepository branchAuditLogRepository,
-            BranchEventPublisher eventPublisher) {
+            BranchEventPublisher eventPublisher,
+            CacheHelper cacheHelper) {
         this.branchRepository = branchRepository;
         this.branchSettingsRepository = branchSettingsRepository;
         this.branchHoursRepository = branchHoursRepository;
@@ -44,24 +51,31 @@ public class BranchService {
         this.branchStaffRepository = branchStaffRepository;
         this.branchAuditLogRepository = branchAuditLogRepository;
         this.eventPublisher = eventPublisher;
+        this.cacheHelper = cacheHelper;
     }
 
     public List<BranchSummaryResponse> listActiveBranches() {
-        return branchRepository.findByStatus("ACTIVE").stream()
-                .map(this::toSummary)
-                .toList();
+        return cacheHelper.getOrSetCache("branch:branch:list:active", cacheTtlSeconds,
+                () -> branchRepository.findByStatus("ACTIVE").stream()
+                        .map(this::toSummary)
+                        .toList());
     }
 
     public List<BranchSummaryResponse> listBranches(String status) {
-        if (status == null || status.isBlank()) {
-            return branchRepository.findAll().stream().map(this::toSummary).toList();
-        }
-        String normalized = normalizeStatus(status);
-        return branchRepository.findByStatus(normalized).stream().map(this::toSummary).toList();
+        String normalized = status == null || status.isBlank() ? "all" : normalizeStatus(status);
+        String cacheKey = "branch:branch:list:status:" + normalized;
+        return cacheHelper.getOrSetCache(cacheKey, cacheTtlSeconds, () -> {
+            if ("all".equals(normalized)) {
+                return branchRepository.findAll().stream().map(this::toSummary).toList();
+            }
+            return branchRepository.findByStatus(normalized).stream().map(this::toSummary).toList();
+        });
     }
 
     public BranchSummaryResponse getBranch(UUID id) {
-        return toSummary(findBranch(id));
+        UUID safeId = Objects.requireNonNull(id, "id");
+        return cacheHelper.getOrSetCache("branch:branch:detail:" + safeId, cacheTtlSeconds,
+                () -> toSummary(findBranch(safeId)));
     }
 
     public BranchInternalResponse getInternal(UUID id) {
@@ -121,6 +135,7 @@ public class BranchService {
         logAudit(saved.getId(), actor, "CREATE", "BRANCH", null, null);
         eventPublisher.publishBranchCreated(new BranchEventPayload(saved.getId(), saved.getCode(), saved.getName(),
                 saved.getStatus(), saved.getUpdatedAt()));
+        invalidateBranchCaches(saved.getId());
         return toSummary(saved);
     }
 
@@ -146,6 +161,7 @@ public class BranchService {
         logAudit(saved.getId(), actor, "UPDATE", "BRANCH", null, null);
         eventPublisher.publishBranchUpdated(new BranchEventPayload(saved.getId(), saved.getCode(), saved.getName(),
                 saved.getStatus(), saved.getUpdatedAt()));
+        invalidateBranchCaches(saved.getId());
         return toSummary(saved);
     }
 
@@ -158,7 +174,15 @@ public class BranchService {
         eventPublisher
                 .publishBranchStatusChanged(new BranchEventPayload(saved.getId(), saved.getCode(), saved.getName(),
                         saved.getStatus(), saved.getUpdatedAt()));
+        invalidateBranchCaches(saved.getId());
         return toSummary(saved);
+    }
+
+    private void invalidateBranchCaches(UUID branchId) {
+        cacheHelper.evictByPattern("branch:branch:list:*");
+        if (branchId != null) {
+            cacheHelper.evict("branch:branch:detail:" + branchId);
+        }
     }
 
     public BranchSettingsSummaryResponse upsertSettings(UUID branchId, BranchSettingsRequest req, String actor) {

@@ -5,6 +5,7 @@ import com.backend.payment.api.dto.VnpayCreateResponse;
 import com.backend.payment.config.VnpayProperties;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.web.client.RestClient;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -41,7 +42,9 @@ class VNPayServiceTest {
 
         KafkaEventPublisher eventPublisher = Mockito.mock(KafkaEventPublisher.class);
 
-        VNPayService service = new VNPayService(props, txService, eventPublisher);
+        RestClient orderServiceRestClient = RestClient.builder().baseUrl("http://localhost:7019").build();
+
+        VNPayService service = new VNPayService(props, txService, eventPublisher, orderServiceRestClient);
         VnpayCreateRequest request = new VnpayCreateRequest(
                 "order-123",
                 1000L,

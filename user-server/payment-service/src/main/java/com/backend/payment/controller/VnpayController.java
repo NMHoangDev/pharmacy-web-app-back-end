@@ -37,15 +37,12 @@ public class VnpayController {
 
     @GetMapping(value = "/vnpay/return", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> handleReturn(@RequestParam Map<String, String> params) {
-        boolean valid = vnpayService.verifySignature(new HashMap<>(params));
-        if (!valid) {
-            return ResponseEntity.badRequest().body("Invalid checksum");
+        VnpayIpnResponse ipnResponse = vnpayService.handleIpn(new HashMap<>(params));
+        if (!"00".equals(ipnResponse.RspCode())) {
+            return ResponseEntity.badRequest().body("VNPAY return failed: " + ipnResponse.Message());
         }
-        String responseCode = params.getOrDefault("vnp_ResponseCode", "");
-        String transactionStatus = params.getOrDefault("vnp_TransactionStatus", "");
-        boolean success = "00".equals(responseCode) && "00".equals(transactionStatus);
         String txnRef = params.getOrDefault("vnp_TxnRef", "");
-        return ResponseEntity.ok("VNPAY return for txnRef=" + txnRef + ", success=" + success);
+        return ResponseEntity.ok("VNPAY return processed for txnRef=" + txnRef);
     }
 
     @GetMapping("/vnpay/ipn")

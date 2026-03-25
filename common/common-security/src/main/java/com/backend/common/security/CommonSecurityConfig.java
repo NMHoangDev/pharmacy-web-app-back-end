@@ -2,6 +2,7 @@ package com.backend.common.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,7 +10,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverter;
 import reactor.core.publisher.Flux;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 public class CommonSecurityConfig {
 
     @Value("${security.keycloak.roles-source:realm}")
@@ -18,34 +19,49 @@ public class CommonSecurityConfig {
     @Value("${security.keycloak.client-id:pharmacy-app}")
     private String clientId;
 
+    // 👉 Converter dùng chung cho tất cả services
     @Bean
+    @ConditionalOnMissingBean
     public KeycloakJwtRoleConverter keycloakJwtRoleConverter() {
         return new KeycloakJwtRoleConverter(rolesSource, clientId);
     }
 
-    @Configuration
+    // ================== SERVLET ==================
+    @Configuration(proxyBeanMethods = false)
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnClass(JwtAuthenticationConverter.class)
-    public class ServletSecurityConfig {
+    static class ServletSecurityConfig {
+
         @Bean
+        @ConditionalOnMissingBean
         public JwtAuthenticationConverter jwtAuthenticationConverter(
-                KeycloakJwtRoleConverter keycloakJwtRoleConverter) {
+                KeycloakJwtRoleConverter roleConverter) {
+
             JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-            converter.setJwtGrantedAuthoritiesConverter(keycloakJwtRoleConverter);
+
+            // 👉 chỉ map role, KHÔNG đụng authentication flow
+            converter.setJwtGrantedAuthoritiesConverter(roleConverter);
+
             return converter;
         }
     }
 
-    @Configuration
+    // ================== REACTIVE ==================
+    @Configuration(proxyBeanMethods = false)
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
     @ConditionalOnClass(ReactiveJwtAuthenticationConverter.class)
-    public class ReactiveSecurityConfig {
+    static class ReactiveSecurityConfig {
+
         @Bean
+        @ConditionalOnMissingBean
         public ReactiveJwtAuthenticationConverter reactiveJwtAuthenticationConverter(
-                KeycloakJwtRoleConverter keycloakJwtRoleConverter) {
+                KeycloakJwtRoleConverter roleConverter) {
+
             ReactiveJwtAuthenticationConverter converter = new ReactiveJwtAuthenticationConverter();
-            converter
-                    .setJwtGrantedAuthoritiesConverter(jwt -> Flux.fromIterable(keycloakJwtRoleConverter.convert(jwt)));
+
+            converter.setJwtGrantedAuthoritiesConverter(
+                    jwt -> Flux.fromIterable(roleConverter.convert(jwt)));
+
             return converter;
         }
     }

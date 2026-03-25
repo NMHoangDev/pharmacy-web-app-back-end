@@ -1,0 +1,111 @@
+spring:
+  cache:
+    type: ${SPRING_CACHE_TYPE:redis}
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    timeout: ${REDIS_TIMEOUT_MS:2000}
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://config-server:8888}
+  application:
+    name: discount-service
+
+  cloud:
+    bus:
+      enabled: ${SPRING_CLOUD_BUS_ENABLED:false}
+    stream:
+      enabled: ${SPRING_CLOUD_STREAM_ENABLED:false}
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/discount_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:160525}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:3000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:2000}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      data-source-properties:
+        createDatabaseIfNotExist: ${DB_CREATE_IF_NOT_EXISTS:true}
+        useSSL: ${DB_USE_SSL:false}
+        allowPublicKeyRetrieval: ${DB_ALLOW_PUBLIC_KEY_RETRIEVAL:true}
+        serverTimezone: ${DB_SERVER_TIMEZONE:UTC}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db.sql
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        delivery.timeout.ms: ${KAFKA_DELIVERY_TIMEOUT_MS:10000}
+        request.timeout.ms: ${KAFKA_REQUEST_TIMEOUT_MS:3000}
+        linger.ms: 5
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.backend.common.model.EventEnvelope
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/pharmacy}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/pharmacy/protocol/openid-connect/certs}
+
+security:
+  keycloak:
+    roles-source: ${KEYCLOAK_ROLES_SOURCE:realm}
+    client-id: ${KEYCLOAK_CLIENT_ID:pharmacy-app}
+    audience: ${KEYCLOAK_AUDIENCE:}
+
+server:
+  port: ${SERVER_PORT:7035}
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+kafka:
+  topics:
+    discount-events: ${DISCOUNT_EVENTS_TOPIC:discount.events}
+    order-events: ${ORDER_EVENTS_TOPIC:order.events}
+
+logging:
+  level:
+    com.pharmacy.discount: DEBUG
+    org.apache.kafka: OFF
+    org.springframework.kafka: OFF
+    org.springframework.integration.kafka: OFF
+    org.springframework.kafka.listener: OFF
+    org.springframework.kafka.core: OFF
+    org.springframework.kafka.support: OFF
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}

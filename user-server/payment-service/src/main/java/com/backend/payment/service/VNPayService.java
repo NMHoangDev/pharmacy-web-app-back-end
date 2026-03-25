@@ -13,6 +13,8 @@ import com.backend.payment.util.VnpayUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -21,6 +23,7 @@ import java.util.Locale;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class VNPayService {
@@ -32,14 +35,17 @@ public class VNPayService {
     private final VnpayProperties properties;
     private final PaymentTransactionService transactionService;
     private final KafkaEventPublisher eventPublisher;
+    private final RestClient orderServiceRestClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public VNPayService(VnpayProperties properties,
             PaymentTransactionService transactionService,
-            KafkaEventPublisher eventPublisher) {
+            KafkaEventPublisher eventPublisher,
+            RestClient orderServiceRestClient) {
         this.properties = properties;
         this.transactionService = transactionService;
         this.eventPublisher = eventPublisher;
+        this.orderServiceRestClient = orderServiceRestClient;
     }
 
     public VnpayCreateResponse createPaymentUrl(VnpayCreateRequest request, String ipAddress) {
@@ -59,6 +65,9 @@ public class VNPayService {
         vnpParams.put("vnp_OrderType", request.orderType() == null ? "other" : request.orderType());
         vnpParams.put("vnp_Locale", request.locale() == null ? properties.getLocaleDefault() : request.locale());
         vnpParams.put("vnp_ReturnUrl", properties.getReturnUrl());
+        if (properties.getIpnUrl() != null && !properties.getIpnUrl().isBlank()) {
+            vnpParams.put("vnp_IpnUrl", properties.getIpnUrl());
+        }
         vnpParams.put("vnp_IpAddr", normalizedIp);
         vnpParams.put("vnp_CreateDate", DateTimeUtil.nowVnpay(zoneId));
         vnpParams.put("vnp_ExpireDate", DateTimeUtil.plusMinutesVnpay(zoneId, properties.getExpireMinutes()));
@@ -68,7 +77,26 @@ public class VNPayService {
 
         String hashData = VnpayUtil.buildHashData(vnpParams);
         String query = VnpayUtil.buildQueryString(vnpParams);
-        String secureHash = HmacUtil.hmacSha512(properties.getHashSecret(), hashData);
+        String secretKey = properties.getHashSecret();
+        if (secretKey != null) {
+            secretKey = secretKey.trim();
+        }
+        String secureHash = HmacUtil.hmacSha512(secretKey, hashData);
+
+        System.out.println("==== VNPAY DEBUG ====");
+        System.out.println("TMN CODE: " + properties.getTmnCode());
+        System.out.println("RETURN URL: " + properties.getReturnUrl());
+        System.out.println("IPN URL: " + properties.getIpnUrl());
+        int secretLen = secretKey == null ? 0 : secretKey.length();
+        System.out.println("HASH SECRET LEN: " + secretLen);
+        if (secretKey != null && secretLen >= 8) {
+            System.out.println(
+                    "HASH SECRET MASKED: " + secretKey.substring(0, 4) + "..." + secretKey.substring(secretLen - 4));
+        }
+        System.out.println("HASH DATA: " + hashData);
+        System.out.println("QUERY: " + query);
+        System.out.println("SECURE HASH: " + secureHash);
+        System.out.println("=====================");
 
         String paymentUrl = properties.getUrl() + "?" + query + "&vnp_SecureHash=" + secureHash;
         transactionService.createPending(request.orderId(), PaymentProvider.VNPAY, txnRef, request.amount(),
@@ -82,7 +110,11 @@ public class VNPayService {
         params.remove("vnp_SecureHash");
         params.remove("vnp_SecureHashType");
         String hashData = VnpayUtil.buildHashData(params);
-        String computed = HmacUtil.hmacSha512(properties.getHashSecret(), hashData);
+        String secretKey = properties.getHashSecret();
+        if (secretKey != null) {
+            secretKey = secretKey.trim();
+        }
+        String computed = HmacUtil.hmacSha512(secretKey, hashData);
         return computed.equalsIgnoreCase(secureHash);
     }
 
@@ -104,10 +136,6 @@ public class VNPayService {
             return new VnpayIpnResponse("04", "Invalid Amount");
         }
 
-        if (tx.getStatus() != PaymentStatus.PENDING) {
-            return new VnpayIpnResponse("02", "Order already confirmed");
-        }
-
         String responseCode = params.get("vnp_ResponseCode");
         String transactionStatus = params.get("vnp_TransactionStatus");
         String transactionNo = params.get("vnp_TransactionNo");
@@ -118,6 +146,13 @@ public class VNPayService {
         if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
             transactionService.updateIfPending(txnRef, PaymentStatus.SUCCEEDED, responseCode,
                     transactionStatus, transactionNo, payDate, rawCallback, paidAt);
+
+            boolean orderConfirmed = confirmOrderPaid(tx.getOrderId(), PaymentProvider.VNPAY.name(), txnRef,
+                    tx.getAmount());
+            if (!orderConfirmed) {
+                return new VnpayIpnResponse("99", "Order confirmation failed");
+            }
+
             eventPublisher.publishSucceeded(tx.getOrderId(), PaymentProvider.VNPAY.name(), txnRef, tx.getAmount(),
                     tx.getCurrency(), paidAt == null ? Instant.now() : paidAt);
             return new VnpayIpnResponse("00", "Confirm Success");
@@ -129,6 +164,35 @@ public class VNPayService {
         eventPublisher.publishFailed(tx.getOrderId(), PaymentProvider.VNPAY.name(), txnRef, tx.getAmount(),
                 tx.getCurrency(), responseCode);
         return new VnpayIpnResponse("00", "Confirm Success");
+    }
+
+    private boolean confirmOrderPaid(String orderId, String provider, String txnRef, long amount) {
+        if (orderId == null || orderId.isBlank()) {
+            return false;
+        }
+        final UUID orderUuid;
+        try {
+            orderUuid = UUID.fromString(orderId);
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("orderId", orderUuid);
+        body.put("provider", provider);
+        body.put("transactionRef", txnRef);
+        body.put("amount", (double) amount);
+
+        try {
+            orderServiceRestClient.post()
+                    .uri("/api/order/pay")
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+            return true;
+        } catch (RestClientException ex) {
+            return false;
+        }
     }
 
     private String generateTxnRef() {
@@ -183,6 +247,15 @@ public class VNPayService {
         if (candidate.contains(",")) {
             candidate = candidate.split(",")[0].trim();
         }
+
+        // VNPay expects IPv4 address in vnp_IpAddr. If we receive IPv6 (common on
+        // localhost ::1),
+        // fallback to IPv4 loopback to avoid provider-side normalization causing
+        // signature mismatch.
+        if (candidate.contains(":")) {
+            return "127.0.0.1";
+        }
+
         if (isValidIp(candidate)) {
             return candidate;
         }
@@ -201,8 +274,9 @@ public class VNPayService {
         if (value == null || value.isBlank()) {
             return false;
         }
+        // VNPay: only accept IPv4 here
         if (value.contains(":")) {
-            return value.length() <= 45;
+            return false;
         }
         String[] parts = value.split("\\.");
         if (parts.length != 4) {

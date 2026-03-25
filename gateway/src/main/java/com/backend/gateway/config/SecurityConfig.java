@@ -53,6 +53,11 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .pathMatchers(HttpMethod.OPTIONS).permitAll()
 
+                                                // DISCOUNT (non-/api prefixed)
+                                                .pathMatchers(HttpMethod.GET, "/user/discounts/campaigns").permitAll()
+                                                .pathMatchers("/admin/**").hasRole("ADMIN")
+                                                .pathMatchers("/user/**").hasAnyRole("USER", "ADMIN")
+
                                                 // ADMIN
                                                 .pathMatchers("/api/reviews/internal/**")
                                                 .hasRole("ADMIN")

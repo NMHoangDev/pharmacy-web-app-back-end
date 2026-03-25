@@ -22,6 +22,9 @@ public final class EventTypes {
     public static final String APPOINTMENT_CANCELLED = "appointment.cancelled";
     public static final String APPOINTMENT_STATUS_UPDATED = "appointment.status.updated";
     public static final String REVIEW_CREATED = "review.created";
+    public static final String PRODUCT_CREATED = "product.created";
+    public static final String PRODUCT_UPDATED = "product.updated";
+    public static final String PRODUCT_DELETED = "product.deleted";
     public static final String CMS_PUBLISHED = "cms.published";
     public static final String USER_CREATED = "user.created";
 }

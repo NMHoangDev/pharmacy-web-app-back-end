@@ -6,6 +6,9 @@ import com.backend.user.api.dto.HealthProfileRequest;
 import com.backend.user.api.dto.HealthProfileResponse;
 import com.backend.user.api.dto.ProfileRequest;
 import com.backend.user.api.dto.ProfileResponse;
+import com.backend.user.cache.CacheConstants;
+import com.backend.user.cache.CacheHelper;
+import com.backend.user.cache.CacheKeyBuilder;
 import com.backend.user.model.Address;
 import com.backend.user.model.HealthProfile;
 import com.backend.user.model.User;
@@ -38,15 +41,21 @@ public class UserService {
     @PersistenceContext
     private EntityManager em;
     private final JdbcTemplate jdbc;
+    private final CacheHelper cacheHelper;
+    private final CacheKeyBuilder cacheKeyBuilder;
 
     public UserService(UserRepository userRepository,
             AddressRepository addressRepository,
             HealthProfileRepository healthRepository,
-            JdbcTemplate jdbc) {
+            JdbcTemplate jdbc,
+            CacheHelper cacheHelper,
+            CacheKeyBuilder cacheKeyBuilder) {
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
         this.healthRepository = healthRepository;
         this.jdbc = jdbc;
+        this.cacheHelper = cacheHelper;
+        this.cacheKeyBuilder = cacheKeyBuilder;
     }
 
     // Profile
@@ -61,61 +70,66 @@ public class UserService {
         u.setFullName(req.fullName());
         u.setAvatarBase64(req.avatarBase64());
         userRepository.save(u);
+        invalidateUserCaches(u.getId());
         log.info("User created id={} email={}", u.getId(), u.getEmail());
         return toProfile(u);
     }
 
     public List<ProfileResponse> list() {
-        return userRepository.findAll().stream().map(this::toProfile).toList();
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKeyBuilder.list("user"), CacheConstants.TTL_USER_LIST,
+                () -> userRepository.findAll().stream().map(this::toProfile).toList());
     }
 
     public ProfileResponse get(UUID id) {
-        var found = userRepository.findById(id);
-        if (found.isPresent()) {
-            return toProfile(found.get());
-        }
-
-        // Diagnostic: check via native query to see if row exists and what the DB has
-        try {
-            log.warn("Diagnostic: EntityManager is null? {} | id class: {}", em == null,
-                    id == null ? "null" : id.getClass());
-            var q = em.createNativeQuery("select id from users where id = :id");
-            q.setParameter("id", id.toString());
-            var list = q.getResultList();
-            log.warn("Native query (param) result count for id={}: {}", id, list.size());
-            if (!list.isEmpty()) {
-                log.warn("Native query (param) first value for id={}: {}", id, list.get(0));
+        String cacheKey = cacheKeyBuilder.detail("user", id);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_USER_DETAIL, () -> {
+            var found = userRepository.findById(id);
+            if (found.isPresent()) {
+                return toProfile(found.get());
             }
 
-            // Try inline SQL to avoid potential binding/type mismatches
-            var inline = em.createNativeQuery("select id from users where id = '" + id.toString() + "'")
-                    .getResultList();
-            log.warn("Native query (inline) result count for id={}: {}", id, inline.size());
-            if (!inline.isEmpty()) {
-                log.warn("Native query (inline) first value for id={}: {}", id, inline.get(0));
+            // Diagnostic: check via native query to see if row exists and what the DB has
+            try {
+                log.warn("Diagnostic: EntityManager is null? {} | id class: {}", em == null,
+                        id == null ? "null" : id.getClass());
+                var q = em.createNativeQuery("select id from users where id = :id");
+                q.setParameter("id", id.toString());
+                var list = q.getResultList();
+                log.warn("Native query (param) result count for id={}: {}", id, list.size());
+                if (!list.isEmpty()) {
+                    log.warn("Native query (param) first value for id={}: {}", id, list.get(0));
+                }
+
+                // Try inline SQL to avoid potential binding/type mismatches
+                var inline = em.createNativeQuery("select id from users where id = '" + id.toString() + "'")
+                        .getResultList();
+                log.warn("Native query (inline) result count for id={}: {}", id, inline.size());
+                if (!inline.isEmpty()) {
+                    log.warn("Native query (inline) first value for id={}: {}", id, inline.get(0));
+                }
+
+            } catch (Exception ex) {
+                log.error("Native query failed for id={}: {}", id, ex.toString(), ex);
             }
 
-        } catch (Exception ex) {
-            log.error("Native query failed for id={}: {}", id, ex.toString(), ex);
-        }
+            // Fallback: try direct JDBC query in case JPA conversion/mapping failed
+            try {
+                var row = jdbc.queryForMap("select id, email, phone, full_name, avatar_base64 from users where id = ?",
+                        id.toString());
+                log.warn("JDBC fallback found row for id={}: {}", id, row);
+                var u = new User();
+                u.setId(UUID.fromString((String) row.get("id")));
+                u.setEmail((String) row.get("email"));
+                u.setPhone((String) row.get("phone"));
+                u.setFullName((String) row.get("full_name"));
+                u.setAvatarBase64((String) row.get("avatar_base64"));
+                return toProfile(u);
+            } catch (EmptyResultDataAccessException er) {
+                // not found via JDBC either
+            }
 
-        // Fallback: try direct JDBC query in case JPA conversion/mapping failed
-        try {
-            var row = jdbc.queryForMap("select id, email, phone, full_name, avatar_base64 from users where id = ?",
-                    id.toString());
-            log.warn("JDBC fallback found row for id={}: {}", id, row);
-            var u = new User();
-            u.setId(UUID.fromString((String) row.get("id")));
-            u.setEmail((String) row.get("email"));
-            u.setPhone((String) row.get("phone"));
-            u.setFullName((String) row.get("full_name"));
-            u.setAvatarBase64((String) row.get("avatar_base64"));
-            return toProfile(u);
-        } catch (EmptyResultDataAccessException er) {
-            // not found via JDBC either
-        }
-
-        return toProfile(userRepository.findById(id).orElseThrow(() -> notFound(id)));
+            return toProfile(userRepository.findById(id).orElseThrow(() -> notFound(id)));
+        });
     }
 
     public ProfileResponse update(UUID id, ProfileRequest req) {
@@ -128,6 +142,7 @@ public class UserService {
             u.setFullName(req.fullName());
             u.setAvatarBase64(req.avatarBase64());
             userRepository.save(u);
+            invalidateUserCaches(u.getId());
             log.info("User updated id={} email={}", u.getId(), u.getEmail());
         } else {
             // Upsert behavior: create new user with provided id
@@ -139,6 +154,7 @@ public class UserService {
             u.setAvatarBase64(req.avatarBase64());
             try {
                 userRepository.save(u);
+                invalidateUserCaches(u.getId());
                 log.info("User created by upsert id={} email={}", u.getId(), u.getEmail());
             } catch (DataIntegrityViolationException dive) {
                 // Likely unique constraint on email - try to return the existing user by email
@@ -160,7 +176,15 @@ public class UserService {
             throw notFound(id);
         }
         userRepository.deleteById(id);
+        invalidateUserCaches(id);
         log.info("User deleted id={}", id);
+    }
+
+    private void invalidateUserCaches(UUID userId) {
+        cacheHelper.evictByPattern(cacheKeyBuilder.pattern("user", "list"));
+        if (userId != null) {
+            cacheHelper.evictByPattern(cacheKeyBuilder.pattern("user", "detail", userId));
+        }
     }
 
     private ProfileResponse toProfile(User u) {

@@ -1,12 +1,11 @@
 {
   "realm": "pharmacy",
   "enabled": true,
+  "accessTokenLifespan": 3600,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 28800,
   "roles": {
-    "realm": [
-      { "name": "ADMIN" },
-      { "name": "PHARMACIST" },
-      { "name": "USER" }
-    ]
+    "realm": [{ "name": "ADMIN" }, { "name": "PHARMACIST" }, { "name": "USER" }]
   },
   "clients": [
     {

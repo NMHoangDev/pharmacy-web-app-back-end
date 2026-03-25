@@ -5,9 +5,12 @@ import com.backend.order.api.dto.*;
 import com.backend.order.model.*;
 import com.backend.order.repo.OrderRepository;
 import com.backend.order.repo.OutboxEventRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -18,10 +21,13 @@ public class CheckoutService {
 
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxRepository;
+    private final DiscountClient discountClient;
 
-    public CheckoutService(OrderRepository orderRepository, OutboxEventRepository outboxRepository) {
+    public CheckoutService(OrderRepository orderRepository, OutboxEventRepository outboxRepository,
+            DiscountClient discountClient) {
         this.orderRepository = orderRepository;
         this.outboxRepository = outboxRepository;
+        this.discountClient = discountClient;
     }
 
     public List<ShippingMethodResponse> getShippingMethods() {
@@ -38,8 +44,9 @@ public class CheckoutService {
                 .sum();
 
         double shippingFee = calculateShippingFee(request.shippingMethod());
-        double discountAmount = calculateDiscount(request.promoCode(), subtotal);
-        double grandTotal = subtotal + shippingFee - discountAmount;
+        QuoteDiscount quoteDiscount = resolveDiscount(request, subtotal, shippingFee);
+        double discountAmount = quoteDiscount.discountAmount;
+        double grandTotal = quoteDiscount.grandTotal;
 
         return new CheckoutQuoteResponse(subtotal, shippingFee, discountAmount, grandTotal);
     }
@@ -48,6 +55,10 @@ public class CheckoutService {
     public CheckoutResponse placeOrder(CheckoutRequest request) {
         CheckoutQuoteResponse quote = computeQuote(request);
         UUID orderId = UUID.randomUUID();
+
+        // If user submitted a promo code, enforce validity and record usage at the
+        // discount-service.
+        applyDiscountOrThrow(request, orderId, quote);
 
         OrderEntity order = new OrderEntity();
         order.setId(orderId);
@@ -134,11 +145,79 @@ public class CheckoutService {
         return 15000.0; // Default STANDARD
     }
 
-    private double calculateDiscount(String promoCode, double subtotal) {
-        if ("PROMO10".equalsIgnoreCase(promoCode)) {
-            return subtotal * 0.1;
+    private record QuoteDiscount(double discountAmount, double grandTotal) {
+    }
+
+    private QuoteDiscount resolveDiscount(CheckoutRequest request, double subtotal, double shippingFee) {
+        String promoCode = request.promoCode();
+        if (promoCode == null || promoCode.isBlank()) {
+            return new QuoteDiscount(0.0, subtotal + shippingFee);
         }
-        return 0.0;
+
+        try {
+            BigDecimal subtotalBd = BigDecimal.valueOf(subtotal);
+            BigDecimal shippingBd = BigDecimal.valueOf(shippingFee);
+            BigDecimal totalBd = subtotalBd.add(shippingBd);
+
+            DiscountClient.DiscountApplyResponse res = discountClient.validate(
+                    request.userId(),
+                    promoCode,
+                    "quote-" + UUID.randomUUID(),
+                    subtotalBd,
+                    shippingBd,
+                    totalBd);
+
+            if (res == null || res.valid() == null || !res.valid()) {
+                return new QuoteDiscount(0.0, subtotal + shippingFee);
+            }
+
+            BigDecimal discountTotal = safe(res.discountAmount()).add(safe(res.shippingDiscount()));
+            BigDecimal finalTotal = res.finalTotal() == null ? totalBd.subtract(discountTotal) : res.finalTotal();
+
+            return new QuoteDiscount(discountTotal.doubleValue(), finalTotal.doubleValue());
+        } catch (Exception ex) {
+            // Resilience: do not break quote on discount-service issues.
+            return new QuoteDiscount(0.0, subtotal + shippingFee);
+        }
+    }
+
+    private void applyDiscountOrThrow(CheckoutRequest request, UUID orderId, CheckoutQuoteResponse quote) {
+        String promoCode = request.promoCode();
+        if (promoCode == null || promoCode.isBlank()) {
+            return;
+        }
+
+        try {
+            BigDecimal subtotalBd = BigDecimal.valueOf(quote.subtotal());
+            BigDecimal shippingBd = BigDecimal.valueOf(quote.shippingFee());
+            BigDecimal totalBd = subtotalBd.add(shippingBd);
+
+            DiscountClient.DiscountApplyResponse res = discountClient.apply(
+                    request.userId(),
+                    promoCode,
+                    orderId.toString(),
+                    subtotalBd,
+                    shippingBd,
+                    totalBd);
+
+            if (res == null || res.valid() == null || !res.valid()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        res != null && res.reason() != null && !res.reason().isBlank()
+                                ? res.reason()
+                                : "Invalid promo code");
+            }
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            // If the user explicitly provided a promo code, fail fast so the UI can prompt
+            // retry.
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Discount service unavailable. Please try again.");
+        }
+    }
+
+    private BigDecimal safe(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private boolean isOnlinePayment(String method) {

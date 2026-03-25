@@ -9,9 +9,12 @@ import com.backend.review.api.dto.ReviewAdminStatsResponse;
 import com.backend.review.api.dto.ReviewRequest;
 import com.backend.review.api.dto.ReviewResponse;
 import com.backend.review.api.dto.ReviewSummaryResponse;
+import com.backend.review.cache.CacheConstants;
 import com.backend.review.model.Review;
 import com.backend.review.model.ReviewImage;
 import com.backend.review.model.ReviewStatus;
+import com.backend.review.cache.CacheHelper;
+import com.backend.review.cache.CacheKeyBuilder;
 import com.backend.review.repo.ReviewImageRepository;
 import com.backend.review.repo.ReviewRepository;
 import org.apache.poi.ss.usermodel.Row;
@@ -43,13 +46,19 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ReviewImageRepository reviewImageRepository;
     private final KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate;
+    private final CacheHelper cacheHelper;
+    private final CacheKeyBuilder cacheKeyBuilder;
 
     public ReviewService(ReviewRepository reviewRepository,
             ReviewImageRepository reviewImageRepository,
-            KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate) {
+            KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate,
+            CacheHelper cacheHelper,
+            CacheKeyBuilder cacheKeyBuilder) {
         this.reviewRepository = reviewRepository;
         this.reviewImageRepository = reviewImageRepository;
         this.kafkaTemplate = kafkaTemplate;
+        this.cacheHelper = cacheHelper;
+        this.cacheKeyBuilder = cacheKeyBuilder;
     }
 
     public ReviewResponse create(ReviewRequest req) {
@@ -70,25 +79,33 @@ public class ReviewService {
         EventEnvelope<ReviewResponse> evt = EventEnvelope.of(EventTypes.REVIEW_CREATED, "1",
                 toResponse(r, images));
         kafkaTemplate.send(TopicNames.REVIEW_EVENTS, evt);
+        invalidateProductCaches(r.getProductId());
 
         return toResponse(r, images);
     }
 
     public Page<ReviewResponse> listByProduct(UUID productId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Review> result = reviewRepository.findByProductIdAndStatus(productId, ReviewStatus.PUBLISHED, pageable);
-        Map<UUID, List<ReviewImageResponse>> imageMap = loadImages(result.getContent());
-        return result.map(review -> toResponse(review, imageMap.get(review.getId())));
+        String cacheKey = cacheKeyBuilder.build("review", "product", productId, "page", page, "size", size);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_REVIEW, () -> {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Review> result = reviewRepository.findByProductIdAndStatus(productId, ReviewStatus.PUBLISHED,
+                    pageable);
+            Map<UUID, List<ReviewImageResponse>> imageMap = loadImages(result.getContent());
+            return result.map(review -> toResponse(review, imageMap.get(review.getId())));
+        });
     }
 
     public ReviewSummaryResponse summaryByProduct(UUID productId) {
-        ReviewStatus status = ReviewStatus.PUBLISHED;
-        long total = reviewRepository.countByProductIdAndStatus(productId, status);
-        Double avg = reviewRepository.avgRatingByProductIdAndStatus(productId, status);
-        Map<Integer, Long> counts = new HashMap<>();
-        reviewRepository.countRatingsByProductIdAndStatus(productId, status)
-                .forEach(row -> counts.put(row.getRating(), row.getTotal()));
-        return new ReviewSummaryResponse(productId, avg == null ? 0 : avg, total, counts);
+        String cacheKey = cacheKeyBuilder.build("review", "detail", "product", productId);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_REVIEW_DETAIL, () -> {
+            ReviewStatus status = ReviewStatus.PUBLISHED;
+            long total = reviewRepository.countByProductIdAndStatus(productId, status);
+            Double avg = reviewRepository.avgRatingByProductIdAndStatus(productId, status);
+            Map<Integer, Long> counts = new HashMap<>();
+            reviewRepository.countRatingsByProductIdAndStatus(productId, status)
+                    .forEach(row -> counts.put(row.getRating(), row.getTotal()));
+            return new ReviewSummaryResponse(productId, avg == null ? 0 : avg, total, counts);
+        });
     }
 
     public Page<ReviewResponse> listByProductAdmin(UUID productId, String status, int page, int size) {
@@ -148,6 +165,7 @@ public class ReviewService {
         r.setContent(req.content());
         r.setUpdatedAt(Instant.now());
         reviewRepository.save(r);
+        invalidateProductCaches(r.getProductId());
         List<ReviewImageResponse> images = loadImagesForReview(r.getId());
         return toResponse(r, images);
     }
@@ -159,6 +177,7 @@ public class ReviewService {
         r.setStatus(parsedStatus);
         r.setUpdatedAt(Instant.now());
         reviewRepository.save(r);
+        invalidateProductCaches(r.getProductId());
         List<ReviewImageResponse> images = loadImagesForReview(r.getId());
         return toResponse(r, images);
     }
@@ -170,6 +189,7 @@ public class ReviewService {
         r.setRepliedAt(Instant.now());
         r.setUpdatedAt(Instant.now());
         reviewRepository.save(r);
+        invalidateProductCaches(r.getProductId());
         List<ReviewImageResponse> images = loadImagesForReview(r.getId());
         return toResponse(r, images);
     }
@@ -256,8 +276,28 @@ public class ReviewService {
     }
 
     public void delete(UUID id) {
+        UUID productId = reviewRepository.findById(id).map(Review::getProductId).orElse(null);
         reviewImageRepository.deleteByReviewId(id);
         reviewRepository.deleteById(id);
+        invalidateProductCaches(productId);
+    }
+
+    private void invalidateProductCaches(UUID productId) {
+        if (productId != null) {
+            cacheHelper.evictByPattern(cacheKeyBuilder.pattern("review", "product", productId));
+            cacheHelper.evictByPattern(cacheKeyBuilder.pattern("review", "detail", "product", productId));
+        }
+    }
+
+    public void invalidateProductCacheByProductId(String productId) {
+        if (productId == null || productId.isBlank()) {
+            return;
+        }
+        try {
+            invalidateProductCaches(UUID.fromString(productId));
+        } catch (IllegalArgumentException ex) {
+            // Ignore malformed event payload.
+        }
     }
 
     private ReviewResponse toResponse(Review r, List<ReviewImageResponse> images) {

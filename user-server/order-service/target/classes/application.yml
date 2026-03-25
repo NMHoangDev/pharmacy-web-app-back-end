@@ -71,3 +71,5 @@ order:
     base-url: ${CATALOG_SERVICE_URL:http://localhost:7017}
   user-service:
     base-url: ${USER_SERVICE_URL:http://localhost:7016}
+  discount-service:
+    base-url: ${DISCOUNT_SERVICE_URL:http://localhost:7035}

@@ -40,6 +40,10 @@ spring:
           default:
             connectTimeout: 3000
             readTimeout: 5000
+  data:
+    redis:
+      host: localhost
+      port: 6380
 
 eureka:
   client:
@@ -77,3 +81,23 @@ management:
     health:
       probes:
         enabled: true
+cache:
+  default-ttl: 600
+  invalidation:
+    topic: cache-invalidation-events
+  ttl:
+    product-list: 600
+    product-detail: 1800
+    category-list: 600
+    review: 600
+    review-detail: 1800
+    inventory-branch: 300
+    inventory-product: 300
+    inventory-activity: 300
+    post-list: 600
+    post-detail: 1800
+    user-list: 600
+    user-detail: 1800
+    appointment-user: 600
+    appointment-detail: 1800
+    appointment-pharmacist: 600

@@ -10,6 +10,16 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: discount-service-admin
+          uri: ${services.discount.uri:http://localhost:7035}
+          predicates:
+            - Path=/admin/discounts/**
+
+        - id: discount-service-user
+          uri: ${services.discount.uri:http://localhost:7035}
+          predicates:
+            - Path=/user/discounts/**
+
         - id: branch-service-public
           uri: ${services.branch.uri:http://localhost:7030}
           predicates:
@@ -182,7 +192,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,refresh,busrefresh,prometheus
+        include: health,info,refresh,busrefresh,prometheus,gateway
   health:
     kafka:
       enabled: false

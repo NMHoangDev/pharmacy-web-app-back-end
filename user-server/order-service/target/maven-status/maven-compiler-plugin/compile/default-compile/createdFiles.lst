@@ -13,6 +13,7 @@ com\backend\order\api\dto\BranchAvailabilityItem.class
 com\backend\order\messaging\PaymentStatusListener.class
 com\backend\order\api\dto\CartItemRequest.class
 com\backend\order\api\dto\ShippingMethodResponse.class
+com\backend\order\service\DiscountClient$InternalApplyDiscountRequest$Order.class
 com\backend\order\config\PromoFeatureProperties.class
 com\backend\order\service\InventoryClient.class
 com\backend\order\model\OrderShippingAddress.class
@@ -27,16 +28,19 @@ com\backend\order\service\InventoryClient$ReserveRequest.class
 com\backend\order\api\dto\CheckoutResponse.class
 com\backend\order\service\orderdetail\OrderDetailService.class
 com\backend\order\api\CheckoutController.class
+com\backend\order\service\DiscountClient$InternalApplyDiscountRequest.class
 com\backend\order\service\InventoryClient$ReserveResponse.class
 com\backend\order\api\dto\ShippingAddressRequest.class
 com\backend\order\service\orderdetail\AddressSnapshot.class
 com\backend\order\OrderServiceApplication.class
+com\backend\order\service\DiscountClient.class
 com\backend\order\model\OrderItem.class
 com\backend\order\api\dto\ShippingAddressResponse.class
 com\backend\order\model\OutboxEvent.class
 com\backend\order\messaging\PaymentStatusEvent.class
 com\backend\order\model\OrderStatus.class
 com\backend\order\config\SecurityConfig.class
+com\backend\order\service\CheckoutService$QuoteDiscount.class
 com\backend\order\service\orderdetail\CatalogClient.class
 com\backend\order\messaging\OrderEventTypes.class
 com\backend\order\service\InventoryClient$ItemQuantity.class
@@ -78,3 +82,4 @@ com\backend\order\api\dto\OrderDetailItemResponse.class
 com\backend\order\model\PaymentStatus.class
 com\backend\order\repo\OutboxEventRepository.class
 com\backend\order\api\dto\CheckoutItem.class
+com\backend\order\service\DiscountClient$DiscountApplyResponse.class

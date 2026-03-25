@@ -4,6 +4,9 @@ import com.backend.common.messaging.EventTypes;
 import com.backend.common.messaging.TopicNames;
 import com.backend.common.model.EventEnvelope;
 import com.backend.content.api.dto.*;
+import com.backend.content.cache.CacheConstants;
+import com.backend.content.cache.CacheHelper;
+import com.backend.content.cache.CacheKeyBuilder;
 import com.backend.content.model.*;
 import com.backend.content.repo.PostImageRepository;
 import com.backend.content.repo.PostRepository;
@@ -43,6 +46,8 @@ public class PostService {
     private final ContentUserService userService;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate;
+    private final CacheHelper cacheHelper;
+    private final CacheKeyBuilder cacheKeyBuilder;
 
     public PostService(PostRepository postRepository,
             TagRepository tagRepository,
@@ -50,7 +55,9 @@ public class PostService {
             PostImageRepository postImageRepository,
             ContentUserService userService,
             ObjectMapper objectMapper,
-            KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate) {
+            KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate,
+            CacheHelper cacheHelper,
+            CacheKeyBuilder cacheKeyBuilder) {
         this.postRepository = postRepository;
         this.tagRepository = tagRepository;
         this.postTagRepository = postTagRepository;
@@ -58,6 +65,8 @@ public class PostService {
         this.userService = userService;
         this.objectMapper = objectMapper;
         this.kafkaTemplate = kafkaTemplate;
+        this.cacheHelper = cacheHelper;
+        this.cacheKeyBuilder = cacheKeyBuilder;
     }
 
     public PagedResponse<PostListItem> list(String q, String tag, String topic, String type, String level,
@@ -78,100 +87,121 @@ public class PostService {
 
         final UUID tagId = resolveTagId(tag, TagType.POST);
 
-        Page<Post> pageResult = postRepository.findAll((root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            if (!isAdmin) {
-                predicates.add(cb.equal(root.get("moderationStatus"), ModerationStatus.PUBLISHED));
-            } else if (statusFilter != null) {
-                predicates.add(cb.equal(root.get("moderationStatus"), statusFilter));
-            }
-            if (q != null && !q.isBlank()) {
-                String keyword = "%" + q.trim().toLowerCase() + "%";
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("title")), keyword),
-                        cb.like(cb.lower(root.get("excerpt")), keyword)));
-            }
-            if (topic != null && !topic.isBlank()) {
-                predicates.add(cb.equal(root.get("topic"), topic.trim().toLowerCase()));
-            }
-            if (type != null && !type.isBlank()) {
-                predicates.add(cb.equal(root.get("type"), type.trim().toLowerCase()));
-            }
-            if (level != null && !level.isBlank()) {
-                predicates.add(cb.equal(root.get("level"), level.trim().toLowerCase()));
-            }
-            if (featured != null) {
-                predicates.add(cb.equal(root.get("featured"), featured));
-            }
-            if (tagId != null) {
-                Subquery<UUID> subquery = query.subquery(UUID.class);
-                Root<PostTag> pt = subquery.from(PostTag.class);
-                subquery.select(pt.get("id").get("postId"))
-                        .where(cb.equal(pt.get("id").get("tagId"), tagId));
-                predicates.add(root.get("id").in(subquery));
-            }
-            return cb.and(predicates.toArray(new Predicate[0]));
-        }, pageable);
+        String cacheKey = cacheKeyBuilder.build(
+                "post",
+                "list",
+                "q", normalizeKey(q),
+                "tag", normalizeKey(tag),
+                "topic", normalizeKey(topic),
+                "type", normalizeKey(type),
+                "level", normalizeKey(level),
+                "featured", (featured == null ? "_" : featured),
+                "status", (statusFilter == null ? "_" : statusFilter),
+                "page", safePage,
+                "size", safeSize,
+                "sort", sortBy,
+                sortDir,
+                "admin", isAdmin);
 
-        List<Post> posts = pageResult.getContent();
-        Map<UUID, List<TagDto>> tagMap = loadTagsForPosts(posts);
-        Map<UUID, ContentUser> authorMap = userService.findByIds(
-                posts.stream().map(Post::getAuthorId).filter(Objects::nonNull).distinct().toList());
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_POST_LIST, () -> {
+            Page<Post> pageResult = postRepository.findAll((root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                if (!isAdmin) {
+                    predicates.add(cb.equal(root.get("moderationStatus"), ModerationStatus.PUBLISHED));
+                } else if (statusFilter != null) {
+                    predicates.add(cb.equal(root.get("moderationStatus"), statusFilter));
+                }
+                if (q != null && !q.isBlank()) {
+                    String keyword = "%" + q.trim().toLowerCase() + "%";
+                    predicates.add(cb.or(
+                            cb.like(cb.lower(root.get("title")), keyword),
+                            cb.like(cb.lower(root.get("excerpt")), keyword)));
+                }
+                if (topic != null && !topic.isBlank()) {
+                    predicates.add(cb.equal(root.get("topic"), topic.trim().toLowerCase()));
+                }
+                if (type != null && !type.isBlank()) {
+                    predicates.add(cb.equal(root.get("type"), type.trim().toLowerCase()));
+                }
+                if (level != null && !level.isBlank()) {
+                    predicates.add(cb.equal(root.get("level"), level.trim().toLowerCase()));
+                }
+                if (featured != null) {
+                    predicates.add(cb.equal(root.get("featured"), featured));
+                }
+                if (tagId != null) {
+                    Subquery<UUID> subquery = query.subquery(UUID.class);
+                    Root<PostTag> pt = subquery.from(PostTag.class);
+                    subquery.select(pt.get("id").get("postId"))
+                            .where(cb.equal(pt.get("id").get("tagId"), tagId));
+                    predicates.add(root.get("id").in(subquery));
+                }
+                return cb.and(predicates.toArray(new Predicate[0]));
+            }, pageable);
 
-        List<PostListItem> items = posts.stream().map(p -> {
-            ContentUser author = authorMap.get(p.getAuthorId());
-            UserSummaryDto authorDto = userService.toSummary(author, false);
-            return new PostListItem(
-                    p.getId(),
-                    p.getSlug(),
-                    p.getTitle(),
-                    p.getExcerpt(),
-                    p.getCoverImageUrl(),
-                    p.getReadingMinutes(),
-                    tagMap.getOrDefault(p.getId(), List.of()),
-                    authorDto,
-                    p.getModerationStatus().name(),
-                    p.getPublishedAt(),
-                    p.getViews());
-        }).toList();
+            List<Post> posts = pageResult.getContent();
+            Map<UUID, List<TagDto>> tagMap = loadTagsForPosts(posts);
+            Map<UUID, ContentUser> authorMap = userService.findByIds(
+                    posts.stream().map(Post::getAuthorId).filter(Objects::nonNull).distinct().toList());
 
-        return new PagedResponse<>(items, new Pagination(safePage, safeSize, pageResult.getTotalElements()));
+            List<PostListItem> items = posts.stream().map(p -> {
+                ContentUser author = authorMap.get(p.getAuthorId());
+                UserSummaryDto authorDto = userService.toSummary(author, false);
+                return new PostListItem(
+                        p.getId(),
+                        p.getSlug(),
+                        p.getTitle(),
+                        p.getExcerpt(),
+                        p.getCoverImageUrl(),
+                        p.getReadingMinutes(),
+                        tagMap.getOrDefault(p.getId(), List.of()),
+                        authorDto,
+                        p.getModerationStatus().name(),
+                        p.getPublishedAt(),
+                        p.getViews());
+            }).toList();
+
+            return new PagedResponse<>(items, new Pagination(safePage, safeSize, pageResult.getTotalElements()));
+        });
     }
 
     public PostDetailResponse getBySlug(String slug, boolean isAdmin) {
-        Post post = postRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
-        if (!isAdmin && post.getModerationStatus() != ModerationStatus.PUBLISHED) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found");
-        }
-        List<TagDto> tags = loadTagsForPost(post.getId());
-        ContentUser author = userService.findByIds(List.of(post.getAuthorId())).get(post.getAuthorId());
-        UserSummaryDto authorDto = userService.toSummary(author, false);
-        List<TocItem> toc = TocUtils.generate(post.getContentJson(), post.getContentHtml(), objectMapper);
-        List<RelatedPostItem> relatedPosts = postRepository
-                .findTop5ByModerationStatusAndIdNotOrderByPublishedAtDesc(ModerationStatus.PUBLISHED, post.getId())
-                .stream()
-                .map(p -> new RelatedPostItem(p.getId(), p.getSlug(), p.getTitle()))
-                .toList();
-        Object contentJsonObj = parseJson(post.getContentJson());
-        List<PostImageDto> images = loadImagesForPost(post.getId());
+        String cacheKey = cacheKeyBuilder.build("post", "detail", "slug", normalizeKey(slug), "admin", isAdmin);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_POST_DETAIL, () -> {
+            Post post = postRepository.findBySlug(slug)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+            if (!isAdmin && post.getModerationStatus() != ModerationStatus.PUBLISHED) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found");
+            }
+            List<TagDto> tags = loadTagsForPost(post.getId());
+            ContentUser author = userService.findByIds(List.of(post.getAuthorId())).get(post.getAuthorId());
+            UserSummaryDto authorDto = userService.toSummary(author, false);
+            List<TocItem> toc = TocUtils.generate(post.getContentJson(), post.getContentHtml(), objectMapper);
+            List<RelatedPostItem> relatedPosts = postRepository
+                    .findTop5ByModerationStatusAndIdNotOrderByPublishedAtDesc(ModerationStatus.PUBLISHED, post.getId())
+                    .stream()
+                    .map(p -> new RelatedPostItem(p.getId(), p.getSlug(), p.getTitle()))
+                    .toList();
+            Object contentJsonObj = parseJson(post.getContentJson());
+            List<PostImageDto> images = loadImagesForPost(post.getId());
 
-        return new PostDetailResponse(
-                post.getId(),
-                post.getSlug(),
-                post.getTitle(),
-                post.getContentHtml(),
-                contentJsonObj,
-                toc,
-                post.getCoverImageUrl(),
-                images,
-                tags,
-                authorDto,
-                post.getDisclaimer(),
-                post.getPublishedAt(),
-                post.getUpdatedAt(),
-                post.getViews(),
-                relatedPosts);
+            return new PostDetailResponse(
+                    post.getId(),
+                    post.getSlug(),
+                    post.getTitle(),
+                    post.getContentHtml(),
+                    contentJsonObj,
+                    toc,
+                    post.getCoverImageUrl(),
+                    images,
+                    tags,
+                    authorDto,
+                    post.getDisclaimer(),
+                    post.getPublishedAt(),
+                    post.getUpdatedAt(),
+                    post.getViews(),
+                    relatedPosts);
+        });
     }
 
     public PostDetailResponse create(PostCreateRequest req) {
@@ -217,6 +247,7 @@ public class PostService {
 
         updatePostImages(post.getId(), req.images());
         updatePostTags(post.getId(), req.tags(), TagType.POST);
+        invalidatePostCaches(post.getSlug());
 
         return getBySlug(post.getSlug(), true);
     }
@@ -235,6 +266,7 @@ public class PostService {
         if (slugBase.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug không hợp lệ");
         }
+        String oldSlug = post.getSlug();
         if (!slugBase.equals(post.getSlug())) {
             String slug = SlugUtils.uniqueSlug(slugBase, postRepository::existsBySlug);
             post.setSlug(slug);
@@ -257,6 +289,8 @@ public class PostService {
 
         updatePostImages(post.getId(), req.images());
         updatePostTags(post.getId(), req.tags(), TagType.POST);
+        invalidatePostCaches(oldSlug);
+        invalidatePostCaches(post.getSlug());
 
         return getBySlug(post.getSlug(), true);
     }
@@ -269,6 +303,7 @@ public class PostService {
         post.setUpdatedAt(Instant.now());
         postRepository.save(post);
         publishContentEvent(post);
+        invalidatePostCaches(post.getSlug());
         return getBySlug(post.getSlug(), true);
     }
 
@@ -278,6 +313,7 @@ public class PostService {
         post.setModerationStatus(ModerationStatus.ARCHIVED);
         post.setUpdatedAt(Instant.now());
         postRepository.save(post);
+        invalidatePostCaches(post.getSlug());
         return getBySlug(post.getSlug(), true);
     }
 
@@ -287,6 +323,7 @@ public class PostService {
         postImageRepository.deleteByPostId(id);
         postTagRepository.deleteByIdPostId(id);
         postRepository.delete(post);
+        invalidatePostCaches(post.getSlug());
     }
 
     public void incrementView(UUID id) {
@@ -294,6 +331,7 @@ public class PostService {
         if (updated == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found");
         }
+        postRepository.findById(id).ifPresent(post -> invalidatePostCaches(post.getSlug()));
     }
 
     private String resolveExcerpt(String excerpt, String contentHtml, String contentJson) {
@@ -336,6 +374,17 @@ public class PostService {
 
     private String toLower(String input) {
         return input == null ? null : input.trim().toLowerCase();
+    }
+
+    private String normalizeKey(String input) {
+        return input == null || input.isBlank() ? "_" : input.trim().toLowerCase();
+    }
+
+    private void invalidatePostCaches(String slug) {
+        cacheHelper.evictByPattern(cacheKeyBuilder.pattern("post", "list"));
+        if (slug != null && !slug.isBlank()) {
+            cacheHelper.evictByPattern(cacheKeyBuilder.pattern("post", "detail", "slug", normalizeKey(slug)));
+        }
     }
 
     private UUID resolveTagId(String slug, TagType type) {

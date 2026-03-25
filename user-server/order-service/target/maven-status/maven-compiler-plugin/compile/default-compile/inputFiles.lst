@@ -9,6 +9,7 @@ D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\model\Payment.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\api\dto\ShippingResponse.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\model\OrderItemId.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\service\DiscountClient.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\api\dto\CartResponseItem.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\messaging\OrderEventTypes.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\api\dto\OrderResponseItem.java

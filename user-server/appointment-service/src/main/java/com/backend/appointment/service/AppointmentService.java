@@ -2,6 +2,9 @@ package com.backend.appointment.service;
 
 import com.backend.appointment.api.dto.AppointmentRequest;
 import com.backend.appointment.api.dto.AppointmentResponse;
+import com.backend.appointment.cache.CacheConstants;
+import com.backend.appointment.cache.CacheHelper;
+import com.backend.appointment.cache.CacheKeyBuilder;
 import com.backend.appointment.messaging.AppointmentEventTypes;
 import com.backend.appointment.model.Appointment;
 import com.backend.appointment.model.AppointmentStatus;
@@ -46,6 +49,8 @@ public class AppointmentService {
     private final PharmacistTimeOffRepository timeOffRepository;
     private final AppointmentAuditService auditService;
     private final BranchClient branchClient;
+    private final CacheHelper cacheHelper;
+    private final CacheKeyBuilder cacheKeyBuilder;
 
     @Value("${appointment.buffer-minutes:10}")
     private int bufferMinutes;
@@ -56,7 +61,9 @@ public class AppointmentService {
             PharmacistRosterRepository rosterRepository,
             PharmacistTimeOffRepository timeOffRepository,
             AppointmentAuditService auditService,
-            BranchClient branchClient) {
+            BranchClient branchClient,
+            CacheHelper cacheHelper,
+            CacheKeyBuilder cacheKeyBuilder) {
         this.repo = repo;
         this.kafkaTemplate = kafkaTemplate;
         this.pharmacistClient = pharmacistClient;
@@ -65,6 +72,8 @@ public class AppointmentService {
         this.timeOffRepository = timeOffRepository;
         this.auditService = auditService;
         this.branchClient = branchClient;
+        this.cacheHelper = cacheHelper;
+        this.cacheKeyBuilder = cacheKeyBuilder;
     }
 
     public AppointmentResponse create(AppointmentRequest req, String actorIp) {
@@ -83,40 +92,62 @@ public class AppointmentService {
         a.setCreatedAt(Instant.now());
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "CREATE", null, a.getStatus().name(), null, getActorRole(), actorIp, null);
         publish(AppointmentEventTypes.APPOINTMENT_CREATED, toResponse(a, canViewNotes()));
         return toResponse(a, canViewNotes());
     }
 
     public Page<AppointmentResponse> listByUser(UUID userId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return repo.findByUserId(userId, pageable).map(a -> toResponse(a, canViewNotesForUser(userId)));
+        boolean includeNotes = canViewNotesForUser(userId);
+        String cacheKey = cacheKeyBuilder.build("appointment", "user", userId, "page", page, "size", size,
+                "includeNotes", includeNotes);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_USER, () -> {
+            Pageable pageable = PageRequest.of(page, size);
+            return repo.findByUserId(userId, pageable).map(a -> toResponse(a, includeNotes));
+        });
     }
 
     public Page<AppointmentResponse> listByUser(UUID userId, UUID branchId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        if (branchId == null) {
-            return repo.findByUserId(userId, pageable).map(a -> toResponse(a, canViewNotesForUser(userId)));
-        }
-        return repo.findByUserIdAndBranchId(userId, branchId, pageable)
-                .map(a -> toResponse(a, canViewNotesForUser(userId)));
+        boolean includeNotes = canViewNotesForUser(userId);
+        String branchKey = branchId == null ? "_" : branchId.toString();
+        String cacheKey = cacheKeyBuilder.build("appointment", "user", userId, "branch", branchKey, "page", page,
+                "size", size, "includeNotes", includeNotes);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_USER, () -> {
+            Pageable pageable = PageRequest.of(page, size);
+            if (branchId == null) {
+                return repo.findByUserId(userId, pageable).map(a -> toResponse(a, includeNotes));
+            }
+            return repo.findByUserIdAndBranchId(userId, branchId, pageable)
+                    .map(a -> toResponse(a, includeNotes));
+        });
     }
 
     public Page<AppointmentResponse> listByPharmacist(UUID pharmacistId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return repo.findByPharmacistId(pharmacistId, pageable).map(a -> toResponse(a, true));
+        String cacheKey = cacheKeyBuilder.build("appointment", "pharmacist", pharmacistId, "page", page, "size", size);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_PHARMACIST, () -> {
+            Pageable pageable = PageRequest.of(page, size);
+            return repo.findByPharmacistId(pharmacistId, pageable).map(a -> toResponse(a, true));
+        });
     }
 
     public Page<AppointmentResponse> listByPharmacist(UUID pharmacistId, UUID branchId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        if (branchId == null) {
-            return repo.findByPharmacistId(pharmacistId, pageable).map(a -> toResponse(a, true));
-        }
-        return repo.findByPharmacistIdAndBranchId(pharmacistId, branchId, pageable).map(a -> toResponse(a, true));
+        String branchKey = branchId == null ? "_" : branchId.toString();
+        String cacheKey = cacheKeyBuilder.build("appointment", "pharmacist", pharmacistId, "branch", branchKey,
+                "page", page, "size", size);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_PHARMACIST, () -> {
+            Pageable pageable = PageRequest.of(page, size);
+            if (branchId == null) {
+                return repo.findByPharmacistId(pharmacistId, pageable).map(a -> toResponse(a, true));
+            }
+            return repo.findByPharmacistIdAndBranchId(pharmacistId, branchId, pageable).map(a -> toResponse(a, true));
+        });
     }
 
     public AppointmentResponse get(UUID id, boolean includeNotes) {
-        return toResponse(repo.findById(requireId(id)).orElseThrow(() -> notFound()), includeNotes);
+        String cacheKey = cacheKeyBuilder.build("appointment", "detail", id, "includeNotes", includeNotes);
+        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_DETAIL,
+                () -> toResponse(repo.findById(requireId(id)).orElseThrow(() -> notFound()), includeNotes));
     }
 
     public AppointmentResponse confirm(UUID id, String reason, String actorIp) {
@@ -127,6 +158,7 @@ public class AppointmentService {
         transition(a, AppointmentStatus.CONFIRMED);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "CONFIRM", null, a.getStatus().name(), reason, getActorRole(), actorIp, null);
         publish(AppointmentEventTypes.APPOINTMENT_ACCEPTED, toResponse(a, canViewNotes()));
         return toResponse(a, canViewNotes());
@@ -141,6 +173,7 @@ public class AppointmentService {
         a.setCancelReason(reason);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "CANCEL", null, a.getStatus().name(), reason, getActorRole(), actorIp, null);
         publish(SecurityUtils.isPharmacist() ? AppointmentEventTypes.APPOINTMENT_REJECTED
                 : AppointmentEventTypes.APPOINTMENT_CANCELLED,
@@ -153,6 +186,7 @@ public class AppointmentService {
         transition(a, AppointmentStatus.IN_PROGRESS);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "START", null, a.getStatus().name(), null, getActorRole(), actorIp, null);
         return toResponse(a, true);
     }
@@ -162,6 +196,7 @@ public class AppointmentService {
         transition(a, AppointmentStatus.COMPLETED);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "COMPLETE", null, a.getStatus().name(), null, getActorRole(), actorIp, null);
         return toResponse(a, true);
     }
@@ -172,6 +207,7 @@ public class AppointmentService {
         a.setNoShowReason(reason);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "NO_SHOW", null, a.getStatus().name(), reason, getActorRole(), actorIp, null);
         return toResponse(a, canViewNotes());
     }
@@ -182,6 +218,7 @@ public class AppointmentService {
         a.setRefundReason(reason);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "REFUND", null, a.getStatus().name(), reason, getActorRole(), actorIp, null);
         return toResponse(a, canViewNotes());
     }
@@ -197,6 +234,7 @@ public class AppointmentService {
         a.setRescheduleReason(reason);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "RESCHEDULE", null, a.getStatus().name(), reason, getActorRole(), actorIp, null);
         return toResponse(a, canViewNotes());
     }
@@ -207,6 +245,7 @@ public class AppointmentService {
         a.setPharmacistId(pharmacistId);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "ASSIGN", null, a.getStatus().name(), reason, getActorRole(), actorIp,
                 "pharmacistId=" + pharmacistId);
         return toResponse(a, canViewNotes());
@@ -253,6 +292,7 @@ public class AppointmentService {
         transition(a, next);
         a.setUpdatedAt(Instant.now());
         repo.save(a);
+        invalidateAppointmentCaches(a);
         auditService.log(a.getId(), "STATUS_UPDATE", null, a.getStatus().name(), reason, getActorRole(), actorIp,
                 "status=" + status);
         publish(AppointmentEventTypes.APPOINTMENT_STATUS_UPDATED, toResponse(a, true));
@@ -504,5 +544,16 @@ public class AppointmentService {
 
     private @NonNull UUID requireId(UUID id) {
         return Objects.requireNonNull(id, "id is required");
+    }
+
+    private void invalidateAppointmentCaches(Appointment appointment) {
+        cacheHelper.evictByPattern(cacheKeyBuilder.pattern("appointment", "detail", appointment.getId()));
+        if (appointment.getUserId() != null) {
+            cacheHelper.evictByPattern(cacheKeyBuilder.pattern("appointment", "user", appointment.getUserId()));
+        }
+        if (appointment.getPharmacistId() != null) {
+            cacheHelper.evictByPattern(
+                    cacheKeyBuilder.pattern("appointment", "pharmacist", appointment.getPharmacistId()));
+        }
     }
 }
