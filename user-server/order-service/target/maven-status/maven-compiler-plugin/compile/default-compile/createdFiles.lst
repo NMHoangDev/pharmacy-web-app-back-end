@@ -67,6 +67,7 @@ com\backend\order\api\dto\DiscountResponse.class
 com\backend\order\api\dto\OrderStatusHistoryResponse.class
 com\backend\order\exception\OrderNotFoundException.class
 com\backend\order\service\InventoryClient$AvailabilityBatchResponse.class
+com\backend\order\api\dto\UserOrderCountResponse.class
 com\backend\order\service\orderdetail\CatalogClient$DrugAdminDto.class
 com\backend\order\api\OrderExceptionHandler.class
 com\backend\order\model\OrderDiscount.class

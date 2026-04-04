@@ -1,5 +1,6 @@
 package com.backend.content.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -20,7 +21,8 @@ public class RedisConfig {
 
         StringRedisSerializer keySerializer = new StringRedisSerializer();
 
-        GenericJackson2JsonRedisSerializer valueSerializer = new GenericJackson2JsonRedisSerializer();
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        GenericJackson2JsonRedisSerializer valueSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 
         template.setKeySerializer(keySerializer);
         template.setHashKeySerializer(keySerializer);

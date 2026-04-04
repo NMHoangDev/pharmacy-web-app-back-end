@@ -100,54 +100,35 @@ public class AppointmentService {
 
     public Page<AppointmentResponse> listByUser(UUID userId, int page, int size) {
         boolean includeNotes = canViewNotesForUser(userId);
-        String cacheKey = cacheKeyBuilder.build("appointment", "user", userId, "page", page, "size", size,
-                "includeNotes", includeNotes);
-        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_USER, () -> {
-            Pageable pageable = PageRequest.of(page, size);
-            return repo.findByUserId(userId, pageable).map(a -> toResponse(a, includeNotes));
-        });
+        Pageable pageable = PageRequest.of(page, size);
+        return repo.findByUserId(userId, pageable).map(a -> toResponse(a, includeNotes));
     }
 
     public Page<AppointmentResponse> listByUser(UUID userId, UUID branchId, int page, int size) {
         boolean includeNotes = canViewNotesForUser(userId);
-        String branchKey = branchId == null ? "_" : branchId.toString();
-        String cacheKey = cacheKeyBuilder.build("appointment", "user", userId, "branch", branchKey, "page", page,
-                "size", size, "includeNotes", includeNotes);
-        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_USER, () -> {
-            Pageable pageable = PageRequest.of(page, size);
-            if (branchId == null) {
-                return repo.findByUserId(userId, pageable).map(a -> toResponse(a, includeNotes));
-            }
-            return repo.findByUserIdAndBranchId(userId, branchId, pageable)
-                    .map(a -> toResponse(a, includeNotes));
-        });
+        Pageable pageable = PageRequest.of(page, size);
+        if (branchId == null) {
+            return repo.findByUserId(userId, pageable).map(a -> toResponse(a, includeNotes));
+        }
+        return repo.findByUserIdAndBranchId(userId, branchId, pageable)
+                .map(a -> toResponse(a, includeNotes));
     }
 
     public Page<AppointmentResponse> listByPharmacist(UUID pharmacistId, int page, int size) {
-        String cacheKey = cacheKeyBuilder.build("appointment", "pharmacist", pharmacistId, "page", page, "size", size);
-        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_PHARMACIST, () -> {
-            Pageable pageable = PageRequest.of(page, size);
-            return repo.findByPharmacistId(pharmacistId, pageable).map(a -> toResponse(a, true));
-        });
+        Pageable pageable = PageRequest.of(page, size);
+        return repo.findByPharmacistId(pharmacistId, pageable).map(a -> toResponse(a, true));
     }
 
     public Page<AppointmentResponse> listByPharmacist(UUID pharmacistId, UUID branchId, int page, int size) {
-        String branchKey = branchId == null ? "_" : branchId.toString();
-        String cacheKey = cacheKeyBuilder.build("appointment", "pharmacist", pharmacistId, "branch", branchKey,
-                "page", page, "size", size);
-        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_PHARMACIST, () -> {
-            Pageable pageable = PageRequest.of(page, size);
-            if (branchId == null) {
-                return repo.findByPharmacistId(pharmacistId, pageable).map(a -> toResponse(a, true));
-            }
-            return repo.findByPharmacistIdAndBranchId(pharmacistId, branchId, pageable).map(a -> toResponse(a, true));
-        });
+        Pageable pageable = PageRequest.of(page, size);
+        if (branchId == null) {
+            return repo.findByPharmacistId(pharmacistId, pageable).map(a -> toResponse(a, true));
+        }
+        return repo.findByPharmacistIdAndBranchId(pharmacistId, branchId, pageable).map(a -> toResponse(a, true));
     }
 
     public AppointmentResponse get(UUID id, boolean includeNotes) {
-        String cacheKey = cacheKeyBuilder.build("appointment", "detail", id, "includeNotes", includeNotes);
-        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_APPOINTMENT_DETAIL,
-                () -> toResponse(repo.findById(requireId(id)).orElseThrow(() -> notFound()), includeNotes));
+        return toResponse(repo.findById(requireId(id)).orElseThrow(() -> notFound()), includeNotes);
     }
 
     public AppointmentResponse confirm(UUID id, String reason, String actorIp) {

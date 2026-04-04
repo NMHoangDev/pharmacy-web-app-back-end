@@ -13,6 +13,13 @@ public record DrugPublicDto(
         String status,
         boolean prescriptionRequired,
         String description,
+        String dosageForm,
+        String packaging,
+        String activeIngredient,
+        String indications,
+        String usageDosage,
+        String contraindicationsWarning,
+        String otherInformation,
         String imageUrl,
         String attributes) {
 }

@@ -7,6 +7,8 @@ spring:
     redis:
       host: localhost
       port: 6380
+      timeout: 800ms
+      connect-timeout: 800ms
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   datasource:

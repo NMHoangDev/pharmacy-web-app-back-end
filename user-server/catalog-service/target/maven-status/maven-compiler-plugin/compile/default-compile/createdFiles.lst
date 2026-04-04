@@ -10,6 +10,7 @@ com\backend\catalog\repo\CategoryRepository.class
 com\backend\catalog\model\Drug.class
 com\backend\catalog\repo\DrugWithBranchView.class
 com\backend\catalog\api\GlobalExceptionHandler$ErrorResponse.class
+com\backend\catalog\api\dto\DrugStatusRequest.class
 com\backend\catalog\cache\CacheProperties.class
 com\backend\catalog\CatalogServiceApplication.class
 com\backend\catalog\api\dto\BranchSettingRequest.class
@@ -22,4 +23,5 @@ com\backend\catalog\cache\CacheInvalidationHelper.class
 com\backend\catalog\api\dto\DrugAdminDto.class
 com\backend\catalog\service\CatalogService.class
 com\backend\catalog\api\dto\DrugPublicDto.class
+com\backend\catalog\service\CatalogService$1.class
 com\backend\catalog\api\dto\CategoryRequest.class

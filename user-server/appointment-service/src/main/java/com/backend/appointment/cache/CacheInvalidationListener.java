@@ -4,11 +4,13 @@ import com.backend.common.model.EventEnvelope;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(prefix = "appointment.messaging.kafka", name = "enabled", havingValue = "true")
 public class CacheInvalidationListener {
 
     private static final Logger log = LoggerFactory.getLogger(CacheInvalidationListener.class);

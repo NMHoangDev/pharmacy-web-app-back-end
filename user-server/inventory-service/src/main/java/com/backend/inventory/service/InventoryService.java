@@ -147,21 +147,29 @@ public class InventoryService {
         }
         UUID branchId = resolveBranchId(branchIdInput);
         String cacheKey = buildAvailabilityCacheKey(branchId, productIds);
-        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_INVENTORY_PRODUCT, () -> {
-            List<InventoryItem> items = inventoryRepo.findByBranchIdAndProductIdIn(branchId, productIds);
-            Map<UUID, InventoryItem> byId = items.stream()
-                    .collect(Collectors.toMap(InventoryItem::getProductId, i -> i));
-            List<AvailabilityItem> result = productIds.stream()
-                    .map(pid -> {
-                        InventoryItem item = byId.get(pid);
-                        int onHand = item == null ? 0 : item.getOnHand();
-                        int reserved = item == null ? 0 : item.getReserved();
-                        int available = Math.max(0, onHand - reserved);
-                        return new AvailabilityItem(pid, available, onHand, reserved);
-                    })
-                    .toList();
-            return new AvailabilityResponse(result);
-        });
+        try {
+            return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_INVENTORY_PRODUCT,
+                    () -> loadAvailability(branchId, productIds));
+        } catch (RuntimeException ex) {
+            cacheHelper.evict(cacheKey);
+            return loadAvailability(branchId, productIds);
+        }
+    }
+
+    private AvailabilityResponse loadAvailability(UUID branchId, List<UUID> productIds) {
+        List<InventoryItem> items = inventoryRepo.findByBranchIdAndProductIdIn(branchId, productIds);
+        Map<UUID, InventoryItem> byId = items.stream()
+                .collect(Collectors.toMap(InventoryItem::getProductId, i -> i));
+        List<AvailabilityItem> result = productIds.stream()
+                .map(pid -> {
+                    InventoryItem item = byId.get(pid);
+                    int onHand = item == null ? 0 : item.getOnHand();
+                    int reserved = item == null ? 0 : item.getReserved();
+                    int available = Math.max(0, onHand - reserved);
+                    return new AvailabilityItem(pid, available, onHand, reserved);
+                })
+                .toList();
+        return new AvailabilityResponse(result);
     }
 
     public AvailabilityBatchResponse availabilityBatch(AvailabilityBatchRequest request) {
@@ -247,17 +255,35 @@ public class InventoryService {
                 (productId == null ? "all" : productId),
                 "limit",
                 safeLimit);
-        return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_INVENTORY_ACTIVITY, () -> {
-            Pageable pageable = PageRequest.of(0, safeLimit);
-            List<InventoryActivity> activities = productId == null
-                    ? activityRepo.findRecentByBranchId(branchId, pageable)
-                    : activityRepo.findRecentByBranchIdAndProductId(branchId, productId, pageable);
-            return activities.stream()
-                    .map(a -> new InventoryActivityResponse(a.getId(), a.getProductId(), a.getType(), a.getDelta(),
-                            a.getOnHandAfter(), a.getReservedAfter(), a.getReason(), a.getRefType(), a.getRefId(),
-                            a.getActor(), a.getBranchId(), a.getBatchNo(), a.getExpiryDate(), a.getCreatedAt()))
-                    .toList();
-        });
+        try {
+            List<?> cached = cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_INVENTORY_ACTIVITY,
+                    () -> loadActivities(branchId, productId, safeLimit));
+            if (cached == null || cached.isEmpty()) {
+                return List.of();
+            }
+            if (cached.stream().allMatch(InventoryActivityResponse.class::isInstance)) {
+                return cached.stream()
+                        .map(InventoryActivityResponse.class::cast)
+                        .toList();
+            }
+            cacheHelper.evict(cacheKey);
+            return loadActivities(branchId, productId, safeLimit);
+        } catch (RuntimeException ex) {
+            cacheHelper.evict(cacheKey);
+            return loadActivities(branchId, productId, safeLimit);
+        }
+    }
+
+    private List<InventoryActivityResponse> loadActivities(UUID branchId, UUID productId, int safeLimit) {
+        Pageable pageable = PageRequest.of(0, safeLimit);
+        List<InventoryActivity> activities = productId == null
+                ? activityRepo.findRecentByBranchId(branchId, pageable)
+                : activityRepo.findRecentByBranchIdAndProductId(branchId, productId, pageable);
+        return activities.stream()
+                .map(a -> new InventoryActivityResponse(a.getId(), a.getProductId(), a.getType(), a.getDelta(),
+                        a.getOnHandAfter(), a.getReservedAfter(), a.getReason(), a.getRefType(), a.getRefId(),
+                        a.getActor(), a.getBranchId(), a.getBatchNo(), a.getExpiryDate(), a.getCreatedAt()))
+                .toList();
     }
 
     private void logActivity(UUID productId, int delta, String type, String reason, int onHand, int reserved,

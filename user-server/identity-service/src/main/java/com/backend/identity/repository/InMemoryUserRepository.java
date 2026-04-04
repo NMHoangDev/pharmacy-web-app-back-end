@@ -55,6 +55,26 @@ public class InMemoryUserRepository implements UserRepository {
     }
 
     @Override
+    public UserAccount upsert(UserAccount account) {
+        UserAccount existing = findById(account.id())
+                .or(() -> findByEmail(account.email()))
+                .orElse(null);
+
+        UserAccount next = existing != null
+                ? new UserAccount(
+                        existing.id(),
+                        account.email() == null || account.email().isBlank() ? existing.email() : account.email(),
+                        account.phone(),
+                        account.passwordHash(),
+                        account.fullName(),
+                        existing.roles())
+                : account;
+
+        save(next);
+        return next;
+    }
+
+    @Override
     public void updatePassword(UUID id, String passwordHash) {
         usersByEmail.replaceAll((k, v) -> v.id().equals(id)
                 ? new UserAccount(v.id(), v.email(), v.phone(), passwordHash, v.fullName(), v.roles())

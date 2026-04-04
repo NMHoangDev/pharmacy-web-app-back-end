@@ -41,6 +41,7 @@ D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\api\dto\OrderDetailItemResponse.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\repo\OrderRepository.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\model\OrderItem.java
+D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\api\dto\UserOrderCountResponse.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\api\dto\PaymentRequest.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\api\dto\CheckoutQuoteResponse.java
 D:\pharmacy-app\web-app\back-end\pharmacy-app\user-server\order-service\src\main\java\com\backend\order\model\OutboxEvent.java

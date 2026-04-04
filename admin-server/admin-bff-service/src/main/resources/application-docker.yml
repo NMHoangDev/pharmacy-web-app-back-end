@@ -1,6 +1,12 @@
 spring:
   application:
     name: admin-bff-service
+  cache:
+    type: redis
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
 server:
   port: 7010
@@ -20,3 +26,9 @@ services:
     url: ${USER_SERVICE_URL:http://user-service:7016}
   order:
     url: ${ORDER_SERVICE_URL:http://order-service:7019}
+  catalog:
+    url: ${CATALOG_SERVICE_URL:http://catalog-service:7017}
+  inventory:
+    url: ${INVENTORY_SERVICE_URL:http://inventory-service:7018}
+  pharmacist:
+    url: ${PHARMACIST_SERVICE_URL:http://pharmacist-service:7025}

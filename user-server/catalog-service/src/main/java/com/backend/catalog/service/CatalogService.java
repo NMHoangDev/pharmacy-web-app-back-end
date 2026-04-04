@@ -18,6 +18,8 @@ import com.backend.catalog.repo.CategoryRepository;
 import com.backend.catalog.repo.DrugBranchSettingRepository;
 import com.backend.catalog.repo.DrugRepository;
 import com.backend.catalog.repo.DrugWithBranchView;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.data.domain.Page;
@@ -28,9 +30,13 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @Transactional
@@ -41,19 +47,22 @@ public class CatalogService {
     private final CacheHelper cacheHelper;
     private final CacheKeyBuilder cacheKeyBuilder;
     private final KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     private static final UUID DEFAULT_BRANCH_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     public CatalogService(CategoryRepository categoryRepository, DrugRepository drugRepository,
             DrugBranchSettingRepository drugBranchSettingRepository, CacheHelper cacheHelper,
             CacheKeyBuilder cacheKeyBuilder,
-            KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate) {
+            KafkaTemplate<String, EventEnvelope<?>> kafkaTemplate,
+            ObjectMapper objectMapper) {
         this.categoryRepository = categoryRepository;
         this.drugRepository = drugRepository;
         this.drugBranchSettingRepository = drugBranchSettingRepository;
         this.cacheHelper = cacheHelper;
         this.cacheKeyBuilder = cacheKeyBuilder;
         this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     // Public queries
@@ -65,11 +74,18 @@ public class CatalogService {
 
     public Page<DrugPublicDto> searchPublicProducts(String q, UUID categoryId, UUID branchId, Pageable pageable) {
         String keyword = normalizeKeyword(q);
+        if (branchId == null) {
+            String cacheKey = buildPublicListCacheKey(keyword, categoryId, null, pageable);
+            return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_PRODUCT_LIST,
+                () -> drugRepository.searchActive(keyword, categoryId, pageable)
+                    .map(this::toPublicDto));
+        }
+
         UUID resolvedBranchId = resolveBranchId(branchId);
         String cacheKey = buildPublicListCacheKey(keyword, categoryId, resolvedBranchId, pageable);
         return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_PRODUCT_LIST,
-                () -> drugRepository.searchPublicByBranch(keyword, categoryId, resolvedBranchId, pageable)
-                        .map(view -> toPublicDto(view, resolvedBranchId)));
+            () -> drugRepository.searchPublicByBranch(keyword, categoryId, resolvedBranchId, pageable)
+                .map(view -> toPublicDto(view, resolvedBranchId)));
     }
 
     public Page<DrugAdminDto> searchProducts(String q, UUID categoryId, String status, UUID branchId,
@@ -82,6 +98,17 @@ public class CatalogService {
     }
 
     public DrugPublicDto getPublicProduct(String idOrSlug, UUID branchId) {
+        if (branchId == null) {
+            String cacheKey = cacheKeyBuilder.build("product", "detail", idOrSlug, "branch", "_");
+            return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_PRODUCT_DETAIL, () -> {
+                Drug drug = findByIdOrSlug(idOrSlug);
+                if (!"ACTIVE".equalsIgnoreCase(drug.getStatus())) {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại");
+                }
+                return toPublicDto(drug);
+            });
+        }
+
         UUID resolvedBranchId = resolveBranchId(branchId);
         String cacheKey = cacheKeyBuilder.build("product", "detail", idOrSlug, "branch", resolvedBranchId);
         return cacheHelper.getOrSetCacheByTtlKey(cacheKey, CacheConstants.TTL_PRODUCT_DETAIL, () -> {
@@ -115,6 +142,17 @@ public class CatalogService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
         } catch (IllegalArgumentException ex) {
             return drugRepository.findWithBranchBySlug(idOrSlug, branchId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
+        }
+    }
+
+    private Drug findByIdOrSlug(String idOrSlug) {
+        try {
+            UUID id = UUID.fromString(idOrSlug);
+            return drugRepository.findById(id)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
+        } catch (IllegalArgumentException ex) {
+            return drugRepository.findBySlug(idOrSlug)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
         }
     }
@@ -236,13 +274,20 @@ public class CatalogService {
         d.setStatus(normalizedStatus);
         d.setPrescriptionRequired(req.prescriptionRequired() != null && req.prescriptionRequired());
         d.setDescription(req.description());
+        d.setDosageForm(resolveDrugDetail(req.dosageForm(), req.attributes(), "dosageForm", "form"));
+        d.setPackaging(resolveDrugDetail(req.packaging(), req.attributes(), "packaging", "packing"));
+        d.setActiveIngredient(resolveDrugDetail(req.activeIngredient(), req.attributes(), "activeIngredient", "ingredient"));
+        d.setIndications(resolveDrugDetail(req.indications(), req.attributes(), "indications", "usage"));
+        d.setUsageDosage(resolveDrugDetail(req.usageDosage(), req.attributes(), "usageDosage", "dosage"));
+        d.setContraindicationsWarning(resolveDrugDetail(req.contraindicationsWarning(), req.attributes(),
+                "contraindicationsWarning", "contraindications", "warning"));
+        d.setOtherInformation(resolveDrugDetail(req.otherInformation(), req.attributes(), "otherInformation", "extraInfo"));
         d.setImageUrl(req.imageUrl());
-        d.setAttributes(req.attributes());
+        d.setAttributes(mergeAttributes(req.attributes(), d));
         d.setCreatedAt(Instant.now());
         d.setUpdatedAt(Instant.now());
         Drug saved = drugRepository.save(d);
-        invalidateProductCaches(saved.getId(), saved.getSlug());
-        publishProductCacheInvalidation(EventTypes.PRODUCT_CREATED, saved.getId());
+        runProductPostWriteTasksAsync(EventTypes.PRODUCT_CREATED, saved.getId(), saved.getSlug());
         return toAdminDto(saved, DEFAULT_BRANCH_ID);
     }
 
@@ -286,21 +331,42 @@ public class CatalogService {
         d.setStatus(normalizedStatus);
         d.setPrescriptionRequired(req.prescriptionRequired() != null && req.prescriptionRequired());
         d.setDescription(req.description());
+        d.setDosageForm(resolveDrugDetail(req.dosageForm(), req.attributes(), "dosageForm", "form"));
+        d.setPackaging(resolveDrugDetail(req.packaging(), req.attributes(), "packaging", "packing"));
+        d.setActiveIngredient(resolveDrugDetail(req.activeIngredient(), req.attributes(), "activeIngredient", "ingredient"));
+        d.setIndications(resolveDrugDetail(req.indications(), req.attributes(), "indications", "usage"));
+        d.setUsageDosage(resolveDrugDetail(req.usageDosage(), req.attributes(), "usageDosage", "dosage"));
+        d.setContraindicationsWarning(resolveDrugDetail(req.contraindicationsWarning(), req.attributes(),
+                "contraindicationsWarning", "contraindications", "warning"));
+        d.setOtherInformation(resolveDrugDetail(req.otherInformation(), req.attributes(), "otherInformation", "extraInfo"));
         d.setImageUrl(req.imageUrl());
-        d.setAttributes(req.attributes());
+        d.setAttributes(mergeAttributes(req.attributes(), d));
         d.setUpdatedAt(Instant.now());
         Drug saved = drugRepository.save(d);
-        invalidateProductCaches(saved.getId(), saved.getSlug());
-        publishProductCacheInvalidation(EventTypes.PRODUCT_UPDATED, saved.getId());
+        runProductPostWriteTasksAsync(EventTypes.PRODUCT_UPDATED, saved.getId(), saved.getSlug());
+        return toAdminDto(saved, DEFAULT_BRANCH_ID);
+    }
+
+    public DrugAdminDto updateDrugStatus(UUID id, String status) {
+        Drug drug = drugRepository.findById(Objects.requireNonNull(id, "id"))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sản phẩm không tồn tại"));
+        String normalizedStatus = normalizeStatus(status);
+        if (normalizedStatus == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái không hợp lệ");
+        }
+        validateStatus(normalizedStatus);
+        drug.setStatus(normalizedStatus);
+        drug.setUpdatedAt(Instant.now());
+        Drug saved = drugRepository.save(drug);
+        runProductPostWriteTasksAsync(EventTypes.PRODUCT_UPDATED, saved.getId(), saved.getSlug());
         return toAdminDto(saved, DEFAULT_BRANCH_ID);
     }
 
     public void deleteDrug(UUID id) {
         UUID safeId = Objects.requireNonNull(id, "id");
-        drugRepository.findById(safeId).ifPresent(drug -> invalidateProductCaches(drug.getId(), drug.getSlug()));
+        String slug = drugRepository.findById(safeId).map(Drug::getSlug).orElse(null);
         drugRepository.deleteById(safeId);
-        invalidateCatalogCaches();
-        publishProductCacheInvalidation(EventTypes.PRODUCT_DELETED, safeId);
+        runProductPostWriteTasksAsync(EventTypes.PRODUCT_DELETED, safeId, slug);
     }
 
     public DrugAdminDto upsertBranchSetting(UUID drugId, BranchSettingRequest req) {
@@ -368,6 +434,30 @@ public class CatalogService {
         }
     }
 
+    private void runProductPostWriteTasksAsync(String eventType, UUID productId, String slug) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                invalidateProductCaches(productId, slug);
+            } catch (Exception ex) {
+                // Keep write APIs responsive even if cache backend is slow/unavailable.
+            }
+
+            if (EventTypes.PRODUCT_DELETED.equals(eventType)) {
+                try {
+                    invalidateCatalogCaches();
+                } catch (Exception ex) {
+                    // Keep write APIs responsive even if cache backend is slow/unavailable.
+                }
+            }
+
+            try {
+                publishProductCacheInvalidation(eventType, productId);
+            } catch (Exception ex) {
+                // Keep write APIs responsive even if broker is slow/unavailable.
+            }
+        });
+    }
+
     private void publishProductCacheInvalidation(String eventType, UUID productId) {
         try {
             CacheInvalidationEvent event = new CacheInvalidationEvent(
@@ -414,7 +504,18 @@ public class CatalogService {
         String effectiveStatus = resolveEffectiveStatus(view);
         return new DrugPublicDto(view.getId(), view.getSku(), view.getName(), view.getSlug(), view.getCategoryId(),
                 effectivePrice, effectiveStatus, view.isPrescriptionRequired(), view.getDescription(),
-                view.getImageUrl(), view.getAttributes());
+                view.getDosageForm(), view.getPackaging(), view.getActiveIngredient(), view.getIndications(),
+                view.getUsageDosage(), view.getContraindicationsWarning(), view.getOtherInformation(),
+                view.getImageUrl(), mergeAttributes(view.getAttributes(), view));
+    }
+
+    private DrugPublicDto toPublicDto(Drug drug) {
+        BigDecimal price = drug.getSalePrice();
+        return new DrugPublicDto(drug.getId(), drug.getSku(), drug.getName(), drug.getSlug(), drug.getCategoryId(),
+                price, drug.getStatus(), drug.isPrescriptionRequired(), drug.getDescription(),
+                drug.getDosageForm(), drug.getPackaging(), drug.getActiveIngredient(), drug.getIndications(),
+                drug.getUsageDosage(), drug.getContraindicationsWarning(), drug.getOtherInformation(),
+                drug.getImageUrl(), mergeAttributes(drug.getAttributes(), drug));
     }
 
     private DrugAdminDto toAdminDto(DrugWithBranchView view, UUID branchId) {
@@ -424,14 +525,165 @@ public class CatalogService {
                 view.getCostPrice(), view.getBaseSalePrice(), view.getPriceOverride(), effectivePrice,
                 view.getGlobalStatus(),
                 view.getBranchStatus(), effectiveStatus, view.isPrescriptionRequired(), view.getDescription(),
-                view.getImageUrl(), view.getAttributes(), branchId, view.getNote());
+                view.getDosageForm(), view.getPackaging(), view.getActiveIngredient(), view.getIndications(),
+                view.getUsageDosage(), view.getContraindicationsWarning(), view.getOtherInformation(),
+                view.getImageUrl(), mergeAttributes(view.getAttributes(), view), branchId, view.getNote());
     }
 
     private DrugAdminDto toAdminDto(Drug drug, UUID branchId) {
         BigDecimal baseSalePrice = drug.getSalePrice();
         return new DrugAdminDto(drug.getId(), drug.getSku(), drug.getName(), drug.getSlug(), drug.getCategoryId(),
                 drug.getCostPrice(), baseSalePrice, null, baseSalePrice, drug.getStatus(), null, drug.getStatus(),
-                drug.isPrescriptionRequired(), drug.getDescription(), drug.getImageUrl(), drug.getAttributes(),
-                branchId, null);
+                drug.isPrescriptionRequired(), drug.getDescription(), drug.getDosageForm(), drug.getPackaging(),
+                drug.getActiveIngredient(), drug.getIndications(), drug.getUsageDosage(),
+                drug.getContraindicationsWarning(), drug.getOtherInformation(), drug.getImageUrl(),
+                mergeAttributes(drug.getAttributes(), drug), branchId, null);
+    }
+
+    private String resolveDrugDetail(String directValue, String attributesJson, String... attributeKeys) {
+        String normalized = normalizeText(directValue);
+        if (normalized != null) {
+            return normalized;
+        }
+        Map<String, Object> attributes = parseAttributes(attributesJson);
+        for (String key : attributeKeys) {
+            String candidate = normalizeText(asString(attributes.get(key)));
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private String mergeAttributes(String rawAttributes, Drug drug) {
+        Map<String, Object> attributes = parseAttributes(rawAttributes);
+        sanitizeMediaAttributes(attributes);
+        putIfPresent(attributes, "dosageForm", drug.getDosageForm());
+        putIfPresent(attributes, "packaging", drug.getPackaging());
+        putIfPresent(attributes, "activeIngredient", drug.getActiveIngredient());
+        putIfPresent(attributes, "indications", drug.getIndications());
+        putIfPresent(attributes, "usageDosage", drug.getUsageDosage());
+        putIfPresent(attributes, "contraindicationsWarning", drug.getContraindicationsWarning());
+        putIfPresent(attributes, "otherInformation", drug.getOtherInformation());
+        putIfPresent(attributes, "form", drug.getDosageForm());
+        putIfPresent(attributes, "packing", drug.getPackaging());
+        putIfPresent(attributes, "ingredient", drug.getActiveIngredient());
+        putIfPresent(attributes, "usage", drug.getIndications());
+        putIfPresent(attributes, "dosage", drug.getUsageDosage());
+        putIfPresent(attributes, "warning", drug.getContraindicationsWarning());
+        putIfPresent(attributes, "contraindications", drug.getContraindicationsWarning());
+        putIfPresent(attributes, "extraInfo", drug.getOtherInformation());
+        return writeAttributes(attributes, rawAttributes);
+    }
+
+    private String mergeAttributes(String rawAttributes, DrugWithBranchView view) {
+        Map<String, Object> attributes = parseAttributes(rawAttributes);
+        sanitizeMediaAttributes(attributes);
+        putIfPresent(attributes, "dosageForm", view.getDosageForm());
+        putIfPresent(attributes, "packaging", view.getPackaging());
+        putIfPresent(attributes, "activeIngredient", view.getActiveIngredient());
+        putIfPresent(attributes, "indications", view.getIndications());
+        putIfPresent(attributes, "usageDosage", view.getUsageDosage());
+        putIfPresent(attributes, "contraindicationsWarning", view.getContraindicationsWarning());
+        putIfPresent(attributes, "otherInformation", view.getOtherInformation());
+        putIfPresent(attributes, "form", view.getDosageForm());
+        putIfPresent(attributes, "packing", view.getPackaging());
+        putIfPresent(attributes, "ingredient", view.getActiveIngredient());
+        putIfPresent(attributes, "usage", view.getIndications());
+        putIfPresent(attributes, "dosage", view.getUsageDosage());
+        putIfPresent(attributes, "warning", view.getContraindicationsWarning());
+        putIfPresent(attributes, "contraindications", view.getContraindicationsWarning());
+        putIfPresent(attributes, "extraInfo", view.getOtherInformation());
+        return writeAttributes(attributes, rawAttributes);
+    }
+
+    private Map<String, Object> parseAttributes(String rawAttributes) {
+        if (rawAttributes == null || rawAttributes.isBlank()) {
+            return new LinkedHashMap<>();
+        }
+        try {
+            return objectMapper.readValue(rawAttributes, new TypeReference<>() {
+            });
+        } catch (Exception ex) {
+            return new LinkedHashMap<>();
+        }
+    }
+
+    private String writeAttributes(Map<String, Object> attributes, String fallback) {
+        if (attributes.isEmpty()) {
+            return normalizeText(fallback);
+        }
+        try {
+            return objectMapper.writeValueAsString(attributes);
+        } catch (Exception ex) {
+            return fallback;
+        }
+    }
+
+    private void putIfPresent(Map<String, Object> attributes, String key, String value) {
+        String normalized = normalizeText(value);
+        if (normalized != null) {
+            attributes.put(key, normalized);
+        }
+    }
+
+    private void sanitizeMediaAttributes(Map<String, Object> attributes) {
+        Object rawImages = attributes.get("images");
+        if (rawImages instanceof List<?> list) {
+            List<String> sanitizedImages = new ArrayList<>();
+            for (Object item : list) {
+                String normalized = normalizeMediaReference(item);
+                if (normalized != null) {
+                    sanitizedImages.add(normalized);
+                }
+            }
+            if (sanitizedImages.isEmpty()) {
+                attributes.remove("images");
+            } else {
+                attributes.put("images", sanitizedImages);
+            }
+        }
+
+        sanitizeSingleMediaValue(attributes, "image");
+        sanitizeSingleMediaValue(attributes, "imageUrl");
+    }
+
+    private void sanitizeSingleMediaValue(Map<String, Object> attributes, String key) {
+        String normalized = normalizeMediaReference(attributes.get(key));
+        if (normalized == null) {
+            attributes.remove(key);
+            return;
+        }
+        attributes.put(key, normalized);
+    }
+
+    private String normalizeMediaReference(Object value) {
+        String candidate = asString(value);
+        if (candidate == null) {
+            return null;
+        }
+        String trimmed = candidate.trim();
+        if (trimmed.isBlank() || trimmed.startsWith("data:")) {
+            return null;
+        }
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) {
+            return trimmed;
+        }
+        if (trimmed.length() > 256 && trimmed.matches("^[A-Za-z0-9+/=]+$")) {
+            return null;
+        }
+        return trimmed;
+    }
+
+    private String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 }

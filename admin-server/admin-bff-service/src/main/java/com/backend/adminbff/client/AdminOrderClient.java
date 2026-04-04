@@ -1,6 +1,7 @@
 package com.backend.adminbff.client;
 
 import com.backend.adminbff.dto.AdminOrderResponse;
+import com.backend.adminbff.dto.UserOrderCountResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,6 +47,21 @@ public class AdminOrderClient {
                     new ParameterizedTypeReference<List<AdminOrderResponse>>() {
                     });
             List<AdminOrderResponse> body = response.getBody();
+            return body != null ? body : List.of();
+        } catch (RestClientException ex) {
+            throw toUpstreamError(ex);
+        }
+    }
+
+    public List<UserOrderCountResponse> countPlacedOrdersByUser() {
+        try {
+            ResponseEntity<List<UserOrderCountResponse>> response = restTemplate.exchange(
+                    orderServiceBaseUrl + "/api/admin/orders/user-counts",
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<UserOrderCountResponse>>() {
+                    });
+            List<UserOrderCountResponse> body = response.getBody();
             return body != null ? body : List.of();
         } catch (RestClientException ex) {
             throw toUpstreamError(ex);

@@ -34,6 +34,10 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
   cloud:
+    bus:
+      enabled: false
+    stream:
+      enabled: false
     openfeign:
       client:
         config:
@@ -55,6 +59,9 @@ appointment:
     grace-minutes: 10
     interval-ms: 60000
   buffer-minutes: 10
+  messaging:
+    kafka:
+      enabled: false
   no-show:
     grace-minutes: 15
     interval-ms: 60000
@@ -81,6 +88,11 @@ management:
     health:
       probes:
         enabled: true
+
+logging:
+  level:
+    org.apache.kafka: OFF
+    org.springframework.kafka: OFF
 cache:
   default-ttl: 600
   invalidation:

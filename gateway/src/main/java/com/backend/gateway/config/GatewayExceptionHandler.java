@@ -14,6 +14,8 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebExceptionHandler;
 import reactor.core.publisher.Mono;
 
+import java.net.ConnectException;
+import java.net.UnknownHostException;
 import java.time.Instant;
 
 @Component
@@ -29,8 +31,22 @@ public class GatewayExceptionHandler implements WebExceptionHandler {
         } else if (ex instanceof AccessDeniedException) {
             return handleSecurityError(exchange, HttpStatus.FORBIDDEN, "Forbidden",
                     "You do not have permission to access this resource");
+        } else if (isUpstreamUnavailable(ex)) {
+            return handleSecurityError(exchange, HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable",
+                    "Upstream service is unavailable. Make sure the target local service is running.");
         }
         return Mono.error(ex);
+    }
+
+    private boolean isUpstreamUnavailable(Throwable ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof ConnectException || current instanceof UnknownHostException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private Mono<Void> handleSecurityError(ServerWebExchange exchange, HttpStatus status, String error,

@@ -119,7 +119,7 @@ public class CheckoutService {
         // 5. Set Status
         boolean isOnlinePayment = isOnlinePayment(request.paymentMethod());
         order.setStatus(isOnlinePayment ? OrderStatus.PENDING_PAYMENT : OrderStatus.PLACED);
-        order.setPaymentStatus(isOnlinePayment ? "UNPAID" : "PENDING");
+        order.setPaymentStatus("UNPAID");
 
         orderRepository.save(order);
 

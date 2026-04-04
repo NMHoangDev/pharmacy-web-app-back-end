@@ -30,6 +30,10 @@ spring:
           uri: ${services.auth.uri:http://localhost:${IDENTITY_SERVER_PORT:7070}}
           predicates:
             - Path=/api/auth/**
+        - id: ai-service
+          uri: ${services.ai.uri:http://localhost:7036}
+          predicates:
+            - Path=/api/chat,/api/chat/**
         - id: media-service
           uri: http://localhost:7021
           predicates:
@@ -105,6 +109,27 @@ spring:
           filters:
             - TokenRelay
           order: -1
+        - id: admin-stats-users-bff
+          uri: http://127.0.0.1:7010
+          predicates:
+            - Path=/api/admin/users/stats,/api/admin/users/stats/**
+          filters:
+            - TokenRelay
+          order: -4
+        - id: admin-stats-orders-bff
+          uri: http://127.0.0.1:7010
+          predicates:
+            - Path=/api/admin/orders/stats
+          filters:
+            - TokenRelay
+          order: -4
+        - id: admin-stats-medicines-bff
+          uri: http://127.0.0.1:7010
+          predicates:
+            - Path=/api/admin/medicines/stats
+          filters:
+            - TokenRelay
+          order: -4
         - id: admin-order-service
           uri: http://localhost:7019
           predicates:
@@ -127,8 +152,24 @@ spring:
           filters:
             - TokenRelay
           order: -2
+        - id: admin-user-service-list
+          uri: http://127.0.0.1:7016
+          predicates:
+            - Path=/api/admin/users
+          filters:
+            - TokenRelay
+            - SetPath=/api/users
+          order: -3
+        - id: admin-user-service-detail
+          uri: http://127.0.0.1:7016
+          predicates:
+            - Path=/api/admin/users/**
+          filters:
+            - TokenRelay
+            - RewritePath=/api/admin/users/(?<segment>.*), /api/users/$\{segment}
+          order: -3
         - id: admin-bff
-          uri: http://localhost:7010
+          uri: http://127.0.0.1:7010
           predicates:
             - Path=/api/admin/**
           filters:
@@ -137,13 +178,23 @@ spring:
           # (admin-bff controller is mapped to /api/admin/*)
 
       globalcors:
+        add-to-simple-url-handler-mapping: true
         corsConfigurations:
           "[/**]":
-            allowedOriginPatterns:
-              - "http://localhost:*"
-            allowedMethods: "*"
+            allowedOriginPatterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:3000,http://192.168.56.1:3000,http://localhost:3001,http://localhost:5173,http://localhost:*,https://*.pharmacare.vn}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
             allowedHeaders: "*"
+            exposedHeaders:
+              - Authorization
+              - Content-Disposition
             allowCredentials: true
+            maxAge: 3600
 
       default-filters:
         - RemoveRequestHeader=Cookie
@@ -160,10 +211,6 @@ spring:
               firstBackoff: 150ms
               maxBackoff: 600ms
               factor: 2
-        - name: CircuitBreaker
-          args:
-            name: backendCircuitBreaker
-            fallbackUri: forward:/fallback
 
       httpclient:
         connect-timeout: 5000

@@ -153,6 +153,13 @@ public class ConsultationService {
                 .orElse(null);
     }
 
+    public ConsultationResponse getSessionDetails(String roomId, String userId) {
+        ConsultationSession session = sessionRepository.findByRoomId(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+        appointmentAccessService.getAppointmentIfAuthorized(session.getAppointmentId(), userId);
+        return toResponse(session);
+    }
+
     @Transactional
     public void ring(String sessionId, String userId) {
         ConsultationSession session = getSessionOrThrow(sessionId);

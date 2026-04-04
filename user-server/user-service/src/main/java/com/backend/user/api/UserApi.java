@@ -13,7 +13,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -43,6 +45,22 @@ public class UserApi {
         return ResponseEntity.ok(userService.list());
     }
 
+    // @GetMapping("/stats")
+    // public ResponseEntity<Map<String, Object>> stats(@RequestParam(defaultValue = "7d") String range) {
+    //     long total = userService.list().size();
+    //     Map<String, Object> metrics = Map.of(
+    //             "totalUsers", total,
+    //             "activeUsers", total,
+    //             "pendingApprovalUsers", 0,
+    //             "blockedUsers", 0,
+    //             "newUsersLast7Days", 0,
+    //             "weekOverWeekGrowthPct", 0);
+    //     return ResponseEntity.ok(Map.of(
+    //             "metrics", metrics,
+    //             "generatedAt", Instant.now().toString(),
+    //             "range", range));
+    // }
+
     @GetMapping("/{id}")
     public ResponseEntity<ProfileResponse> get(@PathVariable UUID id) {
         try {
@@ -54,7 +72,7 @@ public class UserApi {
             // can proceed without failing when profile is missing.
             log.warn("UserApi.get not found id={}; returning minimal profile to avoid breaking consumers", id);
             if (rse.getStatusCode().value() == 404) {
-                return ResponseEntity.ok(new ProfileResponse(id, "", "", "", null));
+                return ResponseEntity.ok(new ProfileResponse(id, "", "", "", null, null));
             }
             return ResponseEntity.status(rse.getStatusCode()).body(null);
         } catch (Exception ex) {

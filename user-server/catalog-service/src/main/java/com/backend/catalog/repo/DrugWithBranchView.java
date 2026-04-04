@@ -24,6 +24,20 @@ public interface DrugWithBranchView {
 
     String getDescription();
 
+    String getDosageForm();
+
+    String getPackaging();
+
+    String getActiveIngredient();
+
+    String getIndications();
+
+    String getUsageDosage();
+
+    String getContraindicationsWarning();
+
+    String getOtherInformation();
+
     String getImageUrl();
 
     String getAttributes();

@@ -50,6 +50,8 @@ class ContentServiceIntegrationTest {
         registry.add("spring.datasource.username", mysql::getUsername);
         registry.add("spring.datasource.password", mysql::getPassword);
         registry.add("spring.datasource.driver-class-name", mysql::getDriverClassName);
+        registry.add("spring.data.redis.host", () -> "127.0.0.1");
+        registry.add("spring.data.redis.port", () -> 1);
     }
 
     @Autowired
@@ -100,8 +102,39 @@ class ContentServiceIntegrationTest {
     }
 
     @Test
+    void listPublicPostsIgnoresInvalidBearerToken() throws Exception {
+        ContentUser user = seedUser("Author", "ADMIN");
+        Post post = new Post();
+        post.setId(UUID.randomUUID());
+        post.setSlug("public-post");
+        post.setTitle("Public Post");
+        post.setExcerpt("Excerpt");
+        post.setAuthorId(user.getId());
+        post.setModerationStatus(ModerationStatus.PUBLISHED);
+        post.setPublishedAt(Instant.now());
+        post.setCreatedAt(Instant.now());
+        post.setUpdatedAt(Instant.now());
+        postRepository.save(post);
+
+        mockMvc.perform(get("/api/content/public/posts?page=1&pageSize=10&sortBy=publishedAt&sortDir=desc")
+                .header("Authorization", "Bearer invalid-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items[*].slug").value(org.hamcrest.Matchers.hasItem("public-post")));
+    }
+
+    @Test
     void createPostRequiresAuth() throws Exception {
         mockMvc.perform(post("/api/content/posts")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Test\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void createPostWithInvalidBearerTokenStillFails() throws Exception {
+        mockMvc.perform(post("/api/content/posts")
+                .header("Authorization", "Bearer invalid-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"title\":\"Test\"}"))
                 .andExpect(status().isUnauthorized());

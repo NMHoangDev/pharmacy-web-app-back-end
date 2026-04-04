@@ -53,8 +53,7 @@ public class PaymentStatusListener {
             payment.setTransactionRef(event.transactionRef());
             paymentRepository.save(payment);
         } else {
-            order.setPaymentStatus("FAILED");
-            // Optionally move to CANCELED or keep PENDING_PAYMENT
+            order.setPaymentStatus("UNPAID");
         }
 
         orderRepository.save(order);

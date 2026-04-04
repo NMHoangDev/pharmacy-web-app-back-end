@@ -8,7 +8,6 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -58,8 +57,9 @@ public class CacheHelper {
 
             resetFailureState();
             log.info("[CACHE MISS] service={} key={}", CacheConstants.SERVICE_NAME, key);
-        } catch (DataAccessException ex) {
+        } catch (RuntimeException ex) {
             onRedisFailure(key, ex);
+            safeDelete(key);
             log.warn("[CACHE FALLBACK] service={} key={}", CacheConstants.SERVICE_NAME, key);
             return dbSupplier.get();
         }
@@ -74,8 +74,9 @@ public class CacheHelper {
             redisObjectTemplate.opsForValue().set(key, value, ttl);
             resetFailureState();
             log.info("[CACHE SET] service={} key={} ttlSeconds={}", CacheConstants.SERVICE_NAME, key, ttl.getSeconds());
-        } catch (DataAccessException ex) {
+        } catch (RuntimeException ex) {
             onRedisFailure(key, ex);
+            safeDelete(key);
         }
         return value;
     }
@@ -108,6 +109,17 @@ public class CacheHelper {
             bypassCacheUntilEpochMillis.set(System.currentTimeMillis() + CIRCUIT_BREAKER_OPEN_MILLIS);
         }
         log.error("[CACHE ERROR] service={} key={} message={}", CacheConstants.SERVICE_NAME, key, ex.getMessage());
+    }
+
+    private void safeDelete(String key) {
+        try {
+            redisObjectTemplate.delete(key);
+        } catch (RuntimeException cleanupEx) {
+            log.warn("[CACHE CLEANUP FAILED] service={} key={} message={}",
+                    CacheConstants.SERVICE_NAME,
+                    key,
+                    cleanupEx.getMessage());
+        }
     }
 
     private void resetFailureState() {

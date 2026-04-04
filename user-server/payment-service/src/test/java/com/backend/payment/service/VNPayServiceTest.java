@@ -63,6 +63,7 @@ class VNPayServiceTest {
         assertEquals("127.0.0.1", params.get("vnp_IpAddr"));
         assertTrue(params.get("vnp_CreateDate").matches("\\d{14}"));
         assertTrue(params.get("vnp_ExpireDate").matches("\\d{14}"));
+        assertEquals(null, params.get("vnp_IpnUrl"));
     }
 
     private Map<String, String> parseQuery(String url) {

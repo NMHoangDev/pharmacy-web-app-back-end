@@ -67,6 +67,32 @@ public class JdbcUserRepository implements UserRepository {
     }
 
     @Override
+    public UserAccount upsert(UserAccount account) {
+        int updated = jdbc.update(
+                "UPDATE users SET email = ?, phone = ?, password_hash = ?, full_name = ? WHERE id = ?",
+                account.email(), account.phone(), account.passwordHash(), account.fullName(), account.id().toString());
+
+        if (updated > 0) {
+            return account;
+        }
+
+        Optional<UserAccount> existingByEmail = account.email() == null || account.email().isBlank()
+                ? Optional.empty()
+                : findByEmail(account.email());
+
+        if (existingByEmail.isPresent()) {
+            UserAccount existing = existingByEmail.get();
+            jdbc.update(
+                    "UPDATE users SET phone = ?, password_hash = ?, full_name = ? WHERE id = ?",
+                    account.phone(), account.passwordHash(), account.fullName(), existing.id().toString());
+            return new UserAccount(existing.id(), existing.email(), account.phone(), account.passwordHash(),
+                    account.fullName(), existing.roles());
+        }
+
+        return save(account);
+    }
+
+    @Override
     public void updatePassword(UUID id, String passwordHash) {
         jdbc.update("UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, id.toString());
     }

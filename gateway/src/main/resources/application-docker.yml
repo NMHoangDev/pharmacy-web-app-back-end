@@ -22,6 +22,10 @@ spring:
           uri: ${services.auth.uri:http://identity-service:7070}
           predicates:
             - Path=/api/auth/**
+        - id: ai-service
+          uri: ${services.ai.uri:http://ai-service:7036}
+          predicates:
+            - Path=/api/chat,/api/chat/**
         - id: media-service
           uri: ${services.media.uri:http://media-service:7021}
           predicates:
@@ -88,6 +92,27 @@ spring:
           filters:
             - TokenRelay
           order: -1
+        - id: admin-stats-users-bff
+          uri: ${services.adminbff.uri:http://admin-bff-service:7010}
+          predicates:
+            - Path=/api/admin/users/stats
+          filters:
+            - TokenRelay
+          order: -4
+        - id: admin-stats-orders-bff
+          uri: ${services.adminbff.uri:http://admin-bff-service:7010}
+          predicates:
+            - Path=/api/admin/orders/stats
+          filters:
+            - TokenRelay
+          order: -4
+        - id: admin-stats-medicines-bff
+          uri: ${services.adminbff.uri:http://admin-bff-service:7010}
+          predicates:
+            - Path=/api/admin/medicines/stats
+          filters:
+            - TokenRelay
+          order: -4
         - id: admin-order-service
           uri: ${services.order.uri:http://order-service:7019}
           predicates:
@@ -109,6 +134,22 @@ spring:
           filters:
             - TokenRelay
           order: -2
+        - id: admin-user-service-list
+          uri: ${services.user.uri:http://user-service:7016}
+          predicates:
+            - Path=/api/admin/users
+          filters:
+            - TokenRelay
+            - SetPath=/api/users
+          order: -3
+        - id: admin-user-service-detail
+          uri: ${services.user.uri:http://user-service:7016}
+          predicates:
+            - Path=/api/admin/users/**
+          filters:
+            - TokenRelay
+            - RewritePath=/api/admin/users/(?<segment>.*), /api/users/$\{segment}
+          order: -3
         - id: admin-bff
           uri: ${services.adminbff.uri:http://admin-bff-service:7010}
           predicates:
@@ -117,13 +158,23 @@ spring:
             - TokenRelay
 
       globalcors:
+        add-to-simple-url-handler-mapping: true
         corsConfigurations:
           "[/**]":
-            allowedOriginPatterns:
-              - "http://localhost:*"
-            allowedMethods: "*"
+            allowedOriginPatterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:3000,http://192.168.56.1:3000,http://localhost:3001,http://localhost:5173,http://localhost:*,https://*.pharmacare.vn}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
             allowedHeaders: "*"
+            exposedHeaders:
+              - Authorization
+              - Content-Disposition
             allowCredentials: true
+            maxAge: 3600
 
       default-filters:
         - RemoveRequestHeader=Cookie
@@ -160,12 +211,6 @@ management:
     web:
       exposure:
         include: health,info,refresh,busrefresh,prometheus,gateway
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,refresh,busrefresh,prometheus
   health:
     livenessstate:
       enabled: true

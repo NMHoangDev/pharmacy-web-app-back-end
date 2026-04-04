@@ -23,8 +23,19 @@ public class JwtDecoderConfig {
     @Value("${security.keycloak.audience:}")
     private String audience;
 
+    @Value("${app.security.enabled:true}")
+    private boolean securityEnabled;
+
     @Bean
     public JwtDecoder jwtDecoder() {
+        if (!securityEnabled) {
+            // Local/dev escape hatch: allow the app to start without requiring Keycloak.
+            // The security filter chain should be configured to permit all when disabled.
+            return token -> {
+                throw new IllegalStateException("JWT decoding is disabled (app.security.enabled=false)");
+            };
+        }
+
         NimbusJwtDecoder decoder;
         OAuth2TokenValidator<Jwt> baseValidator;
 
