@@ -1,8 +1,0 @@
-D:\pharmacy-app\web-app\back-end\pharmacy-app\gateway\src\main\java\com\backend\gateway\config\GatewayExceptionHandler.java
-D:\pharmacy-app\web-app\back-end\pharmacy-app\gateway\src\main\java\com\backend\gateway\filter\AccessLogFilter.java
-D:\pharmacy-app\web-app\back-end\pharmacy-app\gateway\src\main\java\com\backend\gateway\GatewayApplication.java
-D:\pharmacy-app\web-app\back-end\pharmacy-app\gateway\src\main\java\com\backend\gateway\filter\RouteLoggingFilter.java
-D:\pharmacy-app\web-app\back-end\pharmacy-app\gateway\src\main\java\com\backend\gateway\config\SecurityConfig.java
-D:\pharmacy-app\web-app\back-end\pharmacy-app\gateway\src\main\java\com\backend\gateway\api\FallbackController.java
-D:\pharmacy-app\web-app\back-end\pharmacy-app\gateway\src\main\java\com\backend\gateway\filter\RequestCorrelationFilter.java
-D:\pharmacy-app\web-app\back-end\pharmacy-app\gateway\src\main\java\com\backend\gateway\GatewayRouteLogger.java

@@ -54,7 +54,7 @@ timeout /t 2 /nobreak
 
 REM Start Gateway Service after downstream services
 echo Starting Gateway Service...
-start "Gateway Service" cmd /k "cd /d "%BASE_DIR%gateway" && %MAVEN_CMD%"
+start "Gateway Service" cmd /k "cd /d "%BASE_DIR%platform\gateway" && %MAVEN_CMD%"
 
 echo.
 echo All services are starting in separate windows.

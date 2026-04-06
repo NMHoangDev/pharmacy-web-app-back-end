@@ -208,7 +208,7 @@ git push origin main
 ### Update Single Service
 
 ```bash
-git add user-server/user-service/...
+git add services/user-service/...
 git commit -m "fix: user-service bug"
 git push origin main
 # Only user-service rebuilds (Render smart caching)

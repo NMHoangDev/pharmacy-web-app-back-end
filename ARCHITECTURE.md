@@ -50,7 +50,7 @@
 - Gateway/Admin BFF: check respective configs (gateway port not shown here; admin-bff default 8099).
 
 ## Start-up Checklist
-1) MySQL running; load schemas (admin-server/db.sql for admin, existing db.sql files for user services).
+1) MySQL running; load schemas (services/db.sql for admin, existing db.sql files for user services).
 2) Kafka running at localhost:9092 (for reporting/notification event consumption).
 3) Object storage configured for media-service (S3/MinIO credentials).
 4) Build: `mvn clean install` at repository root.

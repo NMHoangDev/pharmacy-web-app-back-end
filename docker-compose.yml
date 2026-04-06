@@ -39,7 +39,7 @@ services:
   config-server:
     build:
       context: .
-      dockerfile: config-server/Dockerfile
+      dockerfile: platform/platform/platform/platform/platform/config-server/Dockerfile
     container_name: config-server
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -57,7 +57,7 @@ services:
   gateway:
     build:
       context: .
-      dockerfile: gateway/Dockerfile
+      dockerfile: platform/platform/platform/platform/platform/gateway/Dockerfile
     container_name: gateway
     environment:
       SPRING_APPLICATION_NAME: gateway-service
@@ -113,7 +113,7 @@ services:
   admin-bff-service:
     build:
       context: .
-      dockerfile: admin-server/admin-bff-service/Dockerfile
+      dockerfile: services/admin-bff-service/Dockerfile
     container_name: admin-bff-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -146,7 +146,7 @@ services:
   appointment-service:
     build:
       context: .
-      dockerfile: user-server/appointment-service/Dockerfile
+      dockerfile: services/appointment-service/Dockerfile
     container_name: appointment-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -172,7 +172,7 @@ services:
   branch-service:
     build:
       context: .
-      dockerfile: user-server/branch-service/Dockerfile
+      dockerfile: services/branch-service/Dockerfile
     container_name: branch-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -197,7 +197,7 @@ services:
   cart-service:
     build:
       context: .
-      dockerfile: user-server/cart-service/Dockerfile
+      dockerfile: services/cart-service/Dockerfile
     container_name: cart-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -222,7 +222,7 @@ services:
   catalog-service:
     build:
       context: .
-      dockerfile: user-server/catalog-service/Dockerfile
+      dockerfile: services/catalog-service/Dockerfile
     container_name: catalog-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -246,7 +246,7 @@ services:
   content-service:
     build:
       context: .
-      dockerfile: user-server/content-service/Dockerfile
+      dockerfile: services/content-service/Dockerfile
     container_name: content-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -271,7 +271,7 @@ services:
   discount-service:
     build:
       context: .
-      dockerfile: user-server/discount-service/Dockerfile
+      dockerfile: services/discount-service/Dockerfile
     container_name: discount-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -297,7 +297,7 @@ services:
   identity-service:
     build:
       context: .
-      dockerfile: user-server/identity-service/Dockerfile
+      dockerfile: services/identity-service/Dockerfile
     container_name: identity-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -326,7 +326,7 @@ services:
   inventory-service:
     build:
       context: .
-      dockerfile: user-server/inventory-service/Dockerfile
+      dockerfile: services/inventory-service/Dockerfile
     container_name: inventory-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -350,7 +350,7 @@ services:
   media-service:
     build:
       context: .
-      dockerfile: user-server/media-service/Dockerfile
+      dockerfile: services/media-service/Dockerfile
     container_name: media-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -375,7 +375,7 @@ services:
     profiles: ["optional"]
     build:
       context: .
-      dockerfile: user-server/notification-service/Dockerfile
+      dockerfile: services/notification-service/Dockerfile
     container_name: notification-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -399,7 +399,7 @@ services:
   order-service:
     build:
       context: .
-      dockerfile: user-server/order-service/Dockerfile
+      dockerfile: services/order-service/Dockerfile
     container_name: order-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -423,7 +423,7 @@ services:
   payment-service:
     build:
       context: .
-      dockerfile: user-server/payment-service/Dockerfile
+      dockerfile: services/payment-service/Dockerfile
     container_name: payment-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -447,7 +447,7 @@ services:
   pharmacist-service:
     build:
       context: .
-      dockerfile: user-server/pharmacist-service/Dockerfile
+      dockerfile: services/pharmacist-service/Dockerfile
     container_name: pharmacist-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -471,7 +471,7 @@ services:
   review-service:
     build:
       context: .
-      dockerfile: user-server/review-service/Dockerfile
+      dockerfile: services/review-service/Dockerfile
     container_name: review-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -495,7 +495,7 @@ services:
   user-service:
     build:
       context: .
-      dockerfile: user-server/user-service/Dockerfile
+      dockerfile: services/user-service/Dockerfile
     container_name: user-service
     environment:
       SPRING_PROFILES_ACTIVE: docker

@@ -42,7 +42,7 @@ echo Waiting 15s for docker services to initialize...
 timeout /t 15 /nobreak >nul
 
 REM Gateway (port configured in gateway/src/main/resources/application.yml)
-start "gateway" cmd /k "cd /d "%ROOT%gateway" && mvn -DskipTests clean spring-boot:run"
+start "gateway" cmd /k "cd /d "%ROOT%platform\gateway" && mvn -DskipTests clean spring-boot:run"
 
 REM User-facing services
 start "identity-service" cmd /k "cd /d "%ROOT%user-server\identity-service" && mvn -DskipTests clean spring-boot:run"

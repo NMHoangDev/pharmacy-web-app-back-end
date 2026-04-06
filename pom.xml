@@ -32,36 +32,36 @@
     <module>common/common-messaging</module>
 
     <!-- gateway -->
-    <module>gateway</module>
+    <module>platform/gateway</module>
 
     <!-- config server -->
-    <module>config-server</module>
+    <module>platform/config-server</module>
 
     <!-- user-side services -->
-    <module>user-server/identity-service</module>
-    <module>user-server/user-service</module>
-    <module>user-server/catalog-service</module>
-    <module>user-server/branch-service</module>
-    <module>user-server/inventory-service</module>
-    <module>user-server/order-service</module>
-    <module>user-server/cart-service</module>
-    <module>user-server/payment-service</module>
-    <module>user-server/discount-service</module>
-    <module>user-server/appointment-service</module>
-    <module>user-server/pharmacist-service</module>
-    <module>user-server/review-service</module>
-    <module>user-server/notification-service</module>
-    <module>user-server/media-service</module>
-    <module>user-server/content-service</module>
-    <module>user-server/ai-service</module>
+    <module>services/identity-service</module>
+    <module>services/user-service</module>
+    <module>services/catalog-service</module>
+    <module>services/branch-service</module>
+    <module>services/inventory-service</module>
+    <module>services/order-service</module>
+    <module>services/cart-service</module>
+    <module>services/payment-service</module>
+    <module>services/discount-service</module>
+    <module>services/appointment-service</module>
+    <module>services/pharmacist-service</module>
+    <module>services/review-service</module>
+    <module>services/notification-service</module>
+    <module>services/media-service</module>
+    <module>services/content-service</module>
+    <module>services/ai-service</module>
  
 
     <!-- admin-side services -->
-    <module>admin-server/admin-bff-service</module>
-    <module>admin-server/cms-service</module>
-    <module>admin-server/reporting-service</module>
-    <module>admin-server/audit-service</module>
-    <module>admin-server/settings-service</module>
+    <module>services/admin-bff-service</module>
+    <module>services/cms-service</module>
+    <module>services/reporting-service</module>
+    <module>services/audit-service</module>
+    <module>services/settings-service</module>
   </modules>
 
      
