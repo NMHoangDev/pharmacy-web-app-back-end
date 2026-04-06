@@ -164,6 +164,7 @@ class ContentServiceIntegrationTest {
         UUID threadId = UUID.fromString(objectMapper.readTree(response).get("id").asText());
         Thread thread = threadRepository.findById(threadId).orElseThrow();
         assertThat(thread.getAnswerCount()).isZero();
+        assertThat(thread.getModerationStatus()).isEqualTo(ModerationStatus.PUBLISHED);
 
         UUID pharmacistId = UUID.randomUUID();
         String answerBody = objectMapper.writeValueAsString(new AnswerCreateRequest("Trả lời", List.of()));
@@ -179,6 +180,33 @@ class ContentServiceIntegrationTest {
         Thread updated = threadRepository.findById(thread.getId()).orElseThrow();
         assertThat(updated.getAnswerCount()).isEqualTo(1);
         assertThat(updated.isHasPharmacistAnswer()).isTrue();
+    }
+
+    @Test
+    void listQuestionsReturnsNewlyCreatedQuestionForPublicUsers() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String title = "Cau hoi moi";
+        String createBody = objectMapper.writeValueAsString(new QuestionCreateRequest(
+                title,
+                "Noi dung cau hoi",
+                false,
+                List.of(),
+                new QuestionContext(25, "FEMALE", false, false, null, List.of(), List.of(), "NORMAL")));
+
+        mockMvc.perform(post("/api/content/questions")
+                .with(jwt().jwt(jwt -> jwt.subject(userId.toString())
+                        .claim("name", "User A")
+                        .claim("realm_access", java.util.Map.of("roles", List.of("USER")))))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createBody))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/content/questions?page=1&pageSize=10&sortBy=createdAt&sortDir=desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].title").value(title))
+                .andExpect(jsonPath("$.items[0].moderationStatus").value(ModerationStatus.PUBLISHED.name()));
     }
 
     @Test

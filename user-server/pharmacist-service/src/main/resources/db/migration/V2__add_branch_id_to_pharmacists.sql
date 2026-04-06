@@ -1,0 +1,2 @@
+-- branch_id and its index are already managed outside Flyway in the current environment.
+-- Keep this migration as a no-op so startup does not fail on databases that already applied the schema change.

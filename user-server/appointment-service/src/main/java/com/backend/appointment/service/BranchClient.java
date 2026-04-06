@@ -9,6 +9,8 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +19,7 @@ import java.util.UUID;
 
 @Component
 public class BranchClient {
+    private static final Logger log = LoggerFactory.getLogger(BranchClient.class);
 
     private final RestTemplate restTemplate;
     private final String baseUrl;
@@ -27,9 +30,9 @@ public class BranchClient {
         this.baseUrl = Objects.requireNonNull(baseUrl, "branch.base-url required");
     }
 
-    public boolean isBranchActive(UUID branchId) {
+    public BranchInternalResponse getBranch(UUID branchId) {
         if (branchId == null) {
-            return true;
+            return null;
         }
         try {
             String url = buildUrl(String.format("/internal/branches/%s", branchId));
@@ -38,10 +41,10 @@ public class BranchClient {
                     Objects.requireNonNull(HttpMethod.GET),
                     HttpEntity.EMPTY,
                     BranchInternalResponse.class);
-            BranchInternalResponse body = response.getBody();
-            return body != null && body.active();
+            return response.getBody();
         } catch (RestClientException ex) {
-            return false;
+            log.warn("Unable to fetch branch {} from branch-service at {}: {}", branchId, baseUrl, ex.getMessage());
+            return null;
         }
     }
 
@@ -67,7 +70,7 @@ public class BranchClient {
         }
     }
 
-    private record BranchInternalResponse(UUID id, String name, String code, boolean active) {
+    public record BranchInternalResponse(UUID id, String name, String code, boolean active) {
     }
 
     private record BranchStaffResponse(UUID branchId, UUID userId, String role, String skillsJson, boolean active) {

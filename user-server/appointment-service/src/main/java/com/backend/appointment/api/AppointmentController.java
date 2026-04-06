@@ -9,6 +9,8 @@ import com.backend.appointment.service.AppointmentAccessService;
 import com.backend.appointment.service.CurrentPharmacistResolver;
 import com.backend.appointment.security.SecurityUtils;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/appointments")
 public class AppointmentController {
+    private static final Logger log = LoggerFactory.getLogger(AppointmentController.class);
 
     private final AppointmentService service;
     private final AppointmentAccessService accessService;
@@ -41,7 +44,24 @@ public class AppointmentController {
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<AppointmentResponse> create(@RequestBody @Valid AppointmentRequest req,
             HttpServletRequest request) {
-        return ResponseEntity.ok(service.create(req, extractIp(request)));
+        UUID actorId = SecurityUtils.getActorId();
+        AppointmentRequest normalized = new AppointmentRequest(
+                req.userId() != null ? req.userId() : actorId,
+                req.pharmacistId(),
+                req.branchId(),
+                req.startAt(),
+                req.endAt(),
+                req.channel(),
+                req.notes());
+        log.info("Create appointment request actorId={} userId={} pharmacistId={} branchId={} startAt={} endAt={} channel={}",
+                actorId,
+                normalized.userId(),
+                normalized.pharmacistId(),
+                normalized.branchId(),
+                normalized.startAt(),
+                normalized.endAt(),
+                normalized.channel());
+        return ResponseEntity.ok(service.create(normalized, extractIp(request)));
     }
 
     @GetMapping("/user/{userId}")

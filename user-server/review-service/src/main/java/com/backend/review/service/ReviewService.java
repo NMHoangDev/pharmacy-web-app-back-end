@@ -80,12 +80,10 @@ public class ReviewService {
 
         List<ReviewImageResponse> images = saveImages(r.getId(), req.images());
 
-        EventEnvelope<ReviewResponse> evt = EventEnvelope.of(EventTypes.REVIEW_CREATED, "1",
-                toResponse(r, images));
-        kafkaTemplate.send(TopicNames.REVIEW_EVENTS, evt);
-        invalidateProductCaches(r.getProductId());
-
-        return toResponse(r, images);
+        ReviewResponse response = toResponse(r, images);
+        publishReviewCreatedEvent(response);
+        invalidateProductCachesSafely(r.getProductId());
+        return response;
     }
 
     public Page<ReviewResponse> listByProduct(UUID productId, int page, int size) {
@@ -170,7 +168,7 @@ public class ReviewService {
         r.setContent(req.content());
         r.setUpdatedAt(Instant.now());
         reviewRepository.save(r);
-        invalidateProductCaches(r.getProductId());
+        invalidateProductCachesSafely(r.getProductId());
         List<ReviewImageResponse> images = loadImagesForReview(r.getId());
         return toResponse(r, images);
     }
@@ -182,7 +180,7 @@ public class ReviewService {
         r.setStatus(parsedStatus);
         r.setUpdatedAt(Instant.now());
         reviewRepository.save(r);
-        invalidateProductCaches(r.getProductId());
+        invalidateProductCachesSafely(r.getProductId());
         List<ReviewImageResponse> images = loadImagesForReview(r.getId());
         return toResponse(r, images);
     }
@@ -194,7 +192,7 @@ public class ReviewService {
         r.setRepliedAt(Instant.now());
         r.setUpdatedAt(Instant.now());
         reviewRepository.save(r);
-        invalidateProductCaches(r.getProductId());
+        invalidateProductCachesSafely(r.getProductId());
         List<ReviewImageResponse> images = loadImagesForReview(r.getId());
         return toResponse(r, images);
     }
@@ -284,13 +282,31 @@ public class ReviewService {
         UUID productId = reviewRepository.findById(id).map(Review::getProductId).orElse(null);
         reviewImageRepository.deleteByReviewId(id);
         reviewRepository.deleteById(id);
-        invalidateProductCaches(productId);
+        invalidateProductCachesSafely(productId);
     }
 
     private void invalidateProductCaches(UUID productId) {
         if (productId != null) {
             cacheHelper.evictByPattern(cacheKeyBuilder.pattern("review", "product", productId));
             cacheHelper.evictByPattern(cacheKeyBuilder.pattern("review", "detail", "product", productId));
+        }
+    }
+
+    private void invalidateProductCachesSafely(UUID productId) {
+        try {
+            invalidateProductCaches(productId);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to invalidate review caches for productId={}", productId, ex);
+        }
+    }
+
+    private void publishReviewCreatedEvent(ReviewResponse response) {
+        try {
+            EventEnvelope<ReviewResponse> evt = EventEnvelope.of(EventTypes.REVIEW_CREATED, "1", response);
+            kafkaTemplate.send(TopicNames.REVIEW_EVENTS, evt);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to publish review created event for reviewId={}", response == null ? null : response.id(),
+                    ex);
         }
     }
 

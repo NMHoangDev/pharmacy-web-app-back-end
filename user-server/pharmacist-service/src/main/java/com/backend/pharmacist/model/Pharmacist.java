@@ -76,6 +76,10 @@ public class Pharmacist {
     @Column(name = "license_number")
     private String licenseNumber;
 
+    @Column(name = "branch_id", columnDefinition = "char(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    private UUID branchId;
+
     @Column(name = "created_at")
     private Instant createdAt;
 
@@ -240,6 +244,14 @@ public class Pharmacist {
 
     public void setLicenseNumber(String licenseNumber) {
         this.licenseNumber = licenseNumber;
+    }
+
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
     }
 
     public Instant getCreatedAt() {

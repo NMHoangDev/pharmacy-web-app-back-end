@@ -236,7 +236,7 @@ public class ThreadService {
         thread.setAskerId(actorId);
         thread.setAnonymous(req.isAnonymous() != null && req.isAnonymous());
         thread.setThreadStatus(ThreadStatus.OPEN);
-        thread.setModerationStatus(ModerationStatus.PENDING);
+        thread.setModerationStatus(ModerationStatus.PUBLISHED);
         thread.setCreatedAt(Instant.now());
         thread.setUpdatedAt(Instant.now());
         thread.setLastActivityAt(Instant.now());

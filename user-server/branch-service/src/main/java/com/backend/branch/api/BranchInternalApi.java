@@ -1,6 +1,7 @@
 package com.backend.branch.api;
 
 import com.backend.branch.api.dto.BranchInternalResponse;
+import com.backend.branch.api.dto.BranchPrimaryStaffRequest;
 import com.backend.branch.api.dto.BranchSettingsSummaryResponse;
 import com.backend.branch.api.dto.BranchStaffResponse;
 import com.backend.branch.service.BranchService;
@@ -40,5 +41,23 @@ public class BranchInternalApi {
             @PathVariable UUID id,
             @RequestParam(name = "role", required = false) String role) {
         return ResponseEntity.ok(branchService.listStaff(id, role));
+    }
+
+    @GetMapping("/staff/{userId}/primary")
+    public ResponseEntity<BranchStaffResponse> primaryStaff(
+            @PathVariable UUID userId,
+            @RequestParam(name = "role", required = false) String role) {
+        BranchStaffResponse response = branchService.getPrimaryStaffAssignment(userId, role);
+        if (response == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/staff/{userId}/primary")
+    public ResponseEntity<BranchStaffResponse> assignPrimaryStaff(
+            @PathVariable UUID userId,
+            @RequestBody BranchPrimaryStaffRequest req) {
+        return ResponseEntity.ok(branchService.assignPrimaryStaff(userId, req));
     }
 }

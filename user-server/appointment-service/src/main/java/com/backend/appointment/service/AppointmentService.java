@@ -296,12 +296,25 @@ public class AppointmentService {
         if (pharmacistId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "pharmacistId required");
         }
+        com.backend.appointment.client.dto.PharmacistPreviewDto pharmacist = null;
+        try {
+            pharmacist = pharmacistClient.getPharmacist(pharmacistId);
+        } catch (Exception ex) {
+            log.warn("Failed to fetch pharmacist {} while validating availability: {}", pharmacistId, ex.getMessage());
+        }
         if (branchId != null) {
-            if (!branchClient.isBranchActive(branchId)) {
+            BranchClient.BranchInternalResponse branch = branchClient.getBranch(branchId);
+            if (branch != null && !branch.active()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Branch is inactive or not found");
             }
             List<UUID> staff = branchClient.getBranchPharmacistIds(branchId);
-            if (staff != null && !staff.isEmpty() && !staff.contains(pharmacistId)) {
+            boolean branchMatchesProfile = pharmacist != null
+                    && pharmacist.branchId() != null
+                    && branchId.equals(pharmacist.branchId());
+            if (branch == null) {
+                log.warn("Skipping strict branch validation for branchId={} because branch-service data is unavailable", branchId);
+            }
+            if (!branchMatchesProfile && staff != null && !staff.isEmpty() && !staff.contains(pharmacistId)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Pharmacist is not assigned to the branch");
             }

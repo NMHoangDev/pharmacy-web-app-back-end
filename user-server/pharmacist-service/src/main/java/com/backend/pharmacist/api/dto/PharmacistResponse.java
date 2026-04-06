@@ -1,5 +1,6 @@
 package com.backend.pharmacist.api.dto;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,5 +24,9 @@ public record PharmacistResponse(
         List<String> workingDays,
         String workingHours,
         List<String> consultationModes,
-        String licenseNumber) {
+        String licenseNumber,
+        UUID branchId,
+        String branchName,
+        Instant createdAt,
+        Instant updatedAt) {
 }

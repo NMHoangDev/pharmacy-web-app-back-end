@@ -21,8 +21,10 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -56,6 +58,9 @@ public class AuthService {
 
     @Value("${services.user.uri:http://localhost:7016}")
     private String userServiceUrl;
+
+    @Value("${services.pharmacist.uri:http://localhost:7025}")
+    private String pharmacistServiceUrl;
 
     public AuthResponse register(RegisterRequest request) {
         UsersResource usersResource = keycloak.realm(realm).users();
@@ -163,13 +168,51 @@ public class AuthService {
         }
     }
 
-    public void updateRole(UUID userId, String roleName) {
-        UsersResource usersResource = keycloak.realm(realm).users();
-        UserResource userResource = usersResource.get(userId.toString());
+    public void assignAdminManagedRole(UUID userId, String roleName) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId is required");
+        }
 
-        RoleRepresentation roleRep = keycloak.realm(realm).roles().get(roleName).toRepresentation();
-        userResource.roles().realmLevel().add(Collections.singletonList(roleRep));
-        log.info("Assigned role {} to user {}", roleName, userId);
+        String targetRole = normalizeManagedRole(roleName);
+        UserResource userResource = keycloak.realm(realm).users().get(userId.toString());
+        UserRepresentation userRepresentation;
+        try {
+            userRepresentation = userResource.toRepresentation();
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found in Keycloak");
+        }
+
+        List<RoleRepresentation> currentRoles = userResource.roles().realmLevel().listAll();
+        List<String> currentManagedRoles = currentRoles.stream()
+                .map(RoleRepresentation::getName)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .map(String::toUpperCase)
+                .filter(this::isManagedRole)
+                .distinct()
+                .toList();
+
+        List<String> nextRoles = new ArrayList<>();
+        nextRoles.add("USER");
+        if (!"USER".equals(targetRole)) {
+            nextRoles.add(targetRole);
+        }
+
+        try {
+            replaceManagedRealmRoles(userResource, currentManagedRoles, nextRoles);
+            upsertLocalIdentityAccount(userRepresentation, userId, nextRoles);
+            if ("PHARMACIST".equals(targetRole)) {
+                syncPharmacistProfile(userId, userRepresentation);
+            }
+            log.info("Assigned managed role {} to user {}", targetRole, userId);
+        } catch (ResponseStatusException ex) {
+            restoreManagedRealmRoles(userResource, nextRoles, currentManagedRoles);
+            throw ex;
+        } catch (Exception ex) {
+            restoreManagedRealmRoles(userResource, nextRoles, currentManagedRoles);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to assign role for user");
+        }
     }
 
     public List<AdminUserIdentitySummary> listAdminUserIdentitySummaries() {
@@ -631,5 +674,145 @@ public class AuthService {
             return "pending";
         }
         return "active";
+    }
+
+    private String normalizeManagedRole(String roleName) {
+        String normalized = roleName == null ? "" : roleName.trim().toUpperCase();
+        return switch (normalized) {
+            case "USER", "PHARMACIST", "ADMIN" -> normalized;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported role");
+        };
+    }
+
+    private boolean isManagedRole(String roleName) {
+        return "USER".equals(roleName) || "PHARMACIST".equals(roleName) || "ADMIN".equals(roleName);
+    }
+
+    private void replaceManagedRealmRoles(UserResource userResource, List<String> currentRoles, List<String> nextRoles) {
+        List<RoleRepresentation> rolesToRemove = currentRoles == null ? List.of() : currentRoles.stream()
+                .filter(currentRole -> nextRoles == null || nextRoles.stream().noneMatch(currentRole::equalsIgnoreCase))
+                .map(role -> keycloak.realm(realm).roles().get(role).toRepresentation())
+                .toList();
+        if (!rolesToRemove.isEmpty()) {
+            userResource.roles().realmLevel().remove(rolesToRemove);
+        }
+
+        List<RoleRepresentation> rolesToAdd = nextRoles == null ? List.of() : nextRoles.stream()
+                .filter(nextRole -> currentRoles == null || currentRoles.stream().noneMatch(nextRole::equalsIgnoreCase))
+                .map(role -> keycloak.realm(realm).roles().get(role).toRepresentation())
+                .toList();
+        if (!rolesToAdd.isEmpty()) {
+            userResource.roles().realmLevel().add(rolesToAdd);
+        }
+    }
+
+    private void restoreManagedRealmRoles(UserResource userResource, List<String> attemptedRoles, List<String> previousRoles) {
+        try {
+            replaceManagedRealmRoles(userResource, attemptedRoles, previousRoles);
+        } catch (Exception rollbackError) {
+            log.warn("Failed to rollback managed roles for {}: {}", userResource.toRepresentation().getId(),
+                    rollbackError.getMessage());
+        }
+    }
+
+    private void upsertLocalIdentityAccount(UserRepresentation userRepresentation, UUID userId, List<String> roles) {
+        Set<String> localRoles = roles == null ? Set.of("ROLE_USER") : roles.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .map(String::toUpperCase)
+                .map(value -> "ROLE_" + value)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+
+        String email = trimToNull(userRepresentation.getEmail());
+        String phone = trimToNull(extractPhone(userRepresentation));
+        String fullName = firstNonBlank(
+                userRepresentation.getFirstName(),
+                userRepresentation.getLastName(),
+                userRepresentation.getUsername(),
+                email,
+                userId.toString());
+
+        repository.upsert(new UserAccount(
+                userId,
+                email,
+                phone,
+                "KEYCLOAK_MANAGED",
+                fullName,
+                localRoles));
+    }
+
+    private void syncPharmacistProfile(UUID userId, UserRepresentation userRepresentation) {
+        Map<String, Object> profile = fetchUserProfile(userId);
+        String email = pickFirstNonBlank(
+                safeMapValue(profile, "email"),
+                trimToNull(userRepresentation.getEmail()),
+                trimToNull(userRepresentation.getUsername()));
+        String phone = pickFirstNonBlank(
+                safeMapValue(profile, "phone"),
+                trimToNull(extractPhone(userRepresentation)));
+        String fullName = pickFirstNonBlank(
+                safeMapValue(profile, "fullName"),
+                trimToNull(userRepresentation.getFirstName()),
+                trimToNull(userRepresentation.getLastName()),
+                trimToNull(userRepresentation.getUsername()),
+                email,
+                userId.toString());
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("name", fullName);
+        payload.put("email", email);
+        payload.put("phone", phone);
+        payload.put("avatarUrl", null);
+        payload.put("specialty", "general");
+
+        try {
+            restTemplate.put(pharmacistServiceUrl + "/internal/pharmacists/" + userId + "/bootstrap", payload);
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Failed to sync pharmacist profile");
+        }
+    }
+
+    private Map<String, Object> fetchUserProfile(UUID userId) {
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    userServiceUrl + "/api/users/" + userId,
+                    HttpMethod.GET,
+                    HttpEntity.EMPTY,
+                    new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {
+                    });
+            return response.getBody() == null ? Map.of() : response.getBody();
+        } catch (RestClientException ex) {
+            return Map.of();
+        }
+    }
+
+    private String safeMapValue(Map<String, Object> payload, String key) {
+        if (payload == null || payload.isEmpty() || key == null) {
+            return null;
+        }
+        Object value = payload.get(key);
+        return value == null ? null : trimToNull(String.valueOf(value));
+    }
+
+    private String pickFirstNonBlank(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
+    private String extractPhone(UserRepresentation userRepresentation) {
+        if (userRepresentation == null || userRepresentation.getAttributes() == null) {
+            return null;
+        }
+        List<String> phones = userRepresentation.getAttributes().get("phone");
+        if (phones == null || phones.isEmpty()) {
+            return null;
+        }
+        return trimToNull(phones.get(0));
     }
 }

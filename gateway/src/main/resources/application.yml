@@ -205,7 +205,7 @@ spring:
           args:
             retries: 2
             statuses: BAD_GATEWAY, GATEWAY_TIMEOUT, SERVICE_UNAVAILABLE
-            methods: GET, POST, PUT, DELETE
+            methods: GET
             exceptions: java.net.ConnectException,java.net.SocketTimeoutException,io.netty.channel.ConnectTimeoutException,reactor.netty.http.client.PrematureCloseException
             backoff:
               firstBackoff: 150ms
@@ -213,8 +213,8 @@ spring:
               factor: 2
 
       httpclient:
-        connect-timeout: 5000
-        response-timeout: 30s
+        connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:2000}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:20s}
       forwarded:
         enabled: true
 
@@ -260,13 +260,13 @@ logging:
     org:
       springframework:
         cloud:
-          gateway: DEBUG
-        security: DEBUG
+          gateway: ${LOG_LEVEL_GATEWAY:INFO}
+        security: ${LOG_LEVEL_SPRING_SECURITY:WARN}
     reactor:
       netty:
         http:
-          client: DEBUG
+          client: ${LOG_LEVEL_REACTOR_NETTY:WARN}
     # enable detailed gateway routing logs
-    "[org.springframework.cloud.gateway.filter]": DEBUG
+    "[org.springframework.cloud.gateway.filter]": ${LOG_LEVEL_GATEWAY_FILTER:INFO}
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{X-Correlation-Id}] %logger - %msg%n"

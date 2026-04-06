@@ -58,7 +58,13 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .pathMatchers("/ws", "/ws/**")
                                                 .permitAll()
-                                                .pathMatchers("/api/auth/**").permitAll()
+                                                .pathMatchers(
+                                                                "/api/auth/login",
+                                                                "/api/auth/register",
+                                                                "/api/auth/refresh",
+                                                                "/api/auth/health/**",
+                                                                "/api/auth/ping")
+                                                .permitAll()
                                                 .pathMatchers("/api/chat", "/api/chat/**").permitAll()
                                                 .pathMatchers(HttpMethod.GET, "/api/branches/**", "/api/branches")
                                                 .permitAll()
@@ -94,7 +100,10 @@ public class SecurityConfig {
                                                 .hasRole("ADMIN")
 
                                                 // USER
-                                                .pathMatchers(HttpMethod.GET, "/api/pharmacists/**")
+                                                .pathMatchers(HttpMethod.GET,
+                                                                "/api/pharmacists",
+                                                                "/api/pharmacists/online",
+                                                                "/api/pharmacists/*")
                                                 .permitAll()
                                                 .pathMatchers("/api/cart/**", "/api/orders/**", "/api/order/**",
                                                                 "/api/payments/**", "/api/reviews/**")
@@ -178,7 +187,11 @@ public class SecurityConfig {
                                 || PATH_MATCHER.match("/fallback", path)
                                 || PATH_MATCHER.match("/ws", path)
                                 || PATH_MATCHER.match("/ws/**", path)
-                                || PATH_MATCHER.match("/api/auth/**", path)
+                                || PATH_MATCHER.match("/api/auth/login", path)
+                                || PATH_MATCHER.match("/api/auth/register", path)
+                                || PATH_MATCHER.match("/api/auth/refresh", path)
+                                || PATH_MATCHER.match("/api/auth/health/**", path)
+                                || PATH_MATCHER.match("/api/auth/ping", path)
                                 || PATH_MATCHER.match("/api/chat", path)
                                 || PATH_MATCHER.match("/api/chat/health", path)) {
                         return true;
@@ -200,7 +213,9 @@ public class SecurityConfig {
                                         || PATH_MATCHER.match("/api/content/tags/**", path)
                                         || PATH_MATCHER.match("/api/reviews/product/**", path)
                                         || PATH_MATCHER.match("/api/reviews/ping", path)
-                                        || PATH_MATCHER.match("/api/pharmacists/**", path)
+                                        || PATH_MATCHER.match("/api/pharmacists", path)
+                                        || PATH_MATCHER.match("/api/pharmacists/online", path)
+                                        || PATH_MATCHER.match("/api/pharmacists/*", path)
                                         || PATH_MATCHER.match("/user/discounts/campaigns", path);
                 }
 

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 import java.util.List;
+import java.util.UUID;
 
 public record UpsertPharmacistRequest(
         String code,
@@ -24,5 +25,6 @@ public record UpsertPharmacistRequest(
         List<String> workingDays,
         String workingHours,
         List<String> consultationModes,
-        String licenseNumber) {
+        String licenseNumber,
+        UUID branchId) {
 }

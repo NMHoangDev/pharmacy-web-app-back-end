@@ -97,8 +97,6 @@ public class AdminController {
 
     @GetMapping("/dashboard/summary")
     public ResponseEntity<Map<String, Object>> dashboardSummary() {
-        // Map.of supports up to 10 entries; Map.ofEntries keeps this response literal
-        // but valid.
         return ResponseEntity.ok(Map.ofEntries(
                 Map.entry("ordersToday", 0),
                 Map.entry("orders7d", 0),
@@ -362,7 +360,7 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("sent", true, "to", to));
     }
 
-    // Audit (placeholder)
+    // Audit 
     @PreAuthorize("hasAnyRole('ADMIN','AUDITOR')")
     @GetMapping("/audit")
     public ResponseEntity<Map<String, Object>> audit(@RequestParam(required = false) String actor,

@@ -1,6 +1,7 @@
 package com.backend.identity.api;
 
 import com.backend.identity.api.dto.AuthResponse;
+import com.backend.identity.api.dto.AdminRoleAssignmentRequest;
 import com.backend.identity.api.dto.AdminUserIdentitySummary;
 import com.backend.identity.api.dto.ChangePasswordRequest;
 import com.backend.identity.api.dto.LoginRequest;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -78,12 +80,12 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    @org.springframework.web.bind.annotation.PutMapping("/users/{userId}/role")
+    @org.springframework.web.bind.annotation.PutMapping("/admin/users/{userId}/role")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> updateRole(
-            @org.springframework.web.bind.annotation.PathVariable java.util.UUID userId,
-            @org.springframework.web.bind.annotation.RequestParam String role) {
-        authService.updateRole(userId, role);
+            @org.springframework.web.bind.annotation.PathVariable UUID userId,
+            @RequestBody @Valid AdminRoleAssignmentRequest request) {
+        authService.assignAdminManagedRole(userId, request.role());
         return ResponseEntity.ok().build();
     }
 }

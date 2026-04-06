@@ -7,6 +7,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -63,6 +64,49 @@ public class BranchClient {
         }
     }
 
+    public BranchSummary getBranch(UUID branchId) {
+        if (branchId == null) {
+            return null;
+        }
+        try {
+            String url = buildUrl(String.format("/internal/branches/%s", branchId));
+            return restTemplate.getForObject(url, BranchSummary.class);
+        } catch (RestClientException ex) {
+            return null;
+        }
+    }
+
+    public UUID getPrimaryBranchId(UUID userId, String role) {
+        if (userId == null) {
+            return null;
+        }
+        try {
+            String url = buildUrl(String.format("/internal/branches/staff/%s/primary?role=%s", userId, normalizeRole(role)));
+            BranchStaffResponse response = restTemplate.getForObject(url, BranchStaffResponse.class);
+            return response == null ? null : response.branchId();
+        } catch (HttpClientErrorException.NotFound ex) {
+            return null;
+        } catch (RestClientException ex) {
+            return null;
+        }
+    }
+
+    public void assignPrimaryBranch(UUID userId, UUID branchId, String role) {
+        if (userId == null) {
+            return;
+        }
+        try {
+            String url = buildUrl(String.format("/internal/branches/staff/%s/primary", userId));
+            restTemplate.exchange(
+                    url,
+                    HttpMethod.PUT,
+                    new HttpEntity<>(new BranchPrimaryStaffRequest(branchId, normalizeRole(role), null, true)),
+                    BranchStaffResponse.class);
+        } catch (RestClientException ex) {
+            // Do not fail pharmacist updates if branch-service sync is temporarily unavailable.
+        }
+    }
+
     private boolean isCacheValidFor(UUID branchId) {
         if (cacheTtlSeconds <= 0) {
             return false;
@@ -76,6 +120,10 @@ public class BranchClient {
         this.staffCacheExpiresAt = Instant.now().plus(Duration.ofSeconds(cacheTtlSeconds));
     }
 
+    private String normalizeRole(String role) {
+        return role == null || role.isBlank() ? "PHARMACIST" : role.trim().toUpperCase();
+    }
+
     private @NonNull String buildUrl(String path) {
         if (path == null || path.isBlank()) {
             return Objects.requireNonNull(baseUrl);
@@ -87,5 +135,11 @@ public class BranchClient {
     }
 
     private record BranchStaffResponse(UUID branchId, UUID userId, String role, String skillsJson, boolean active) {
+    }
+
+    public record BranchSummary(UUID id, String code, String name, String status, String timezone) {
+    }
+
+    private record BranchPrimaryStaffRequest(UUID branchId, String role, String skillsJson, Boolean active) {
     }
 }
