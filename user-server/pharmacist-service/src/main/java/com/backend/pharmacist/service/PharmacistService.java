@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -60,8 +62,10 @@ public class PharmacistService {
             Boolean verified,
             int page,
             int size,
-            UUID branchId) {
-        Pageable pageable = PageRequest.of(page, size);
+            UUID branchId,
+            String sortBy,
+            String sortDir) {
+        Pageable pageable = PageRequest.of(page, size, resolveSort(sortBy, sortDir));
         List<UUID> pharmacistIds = branchClient.getBranchPharmacistIds(branchId);
         if (branchId != null && (pharmacistIds == null || pharmacistIds.isEmpty())) {
             return Page.empty(pageable);
@@ -73,6 +77,8 @@ public class PharmacistService {
                 + ":experience:" + normalizeKey(experience)
                 + ":verified:" + (verified == null ? "_" : verified)
                 + ":branch:" + (branchId == null ? "_" : branchId)
+                + ":sortBy:" + normalizeKey(sortBy)
+                + ":sortDir:" + normalizeKey(sortDir)
                 + ":page:" + page
                 + ":size:" + size;
         return cacheHelper.getOrSetCache(cacheKey, cacheTtlSeconds, () -> {
@@ -108,6 +114,7 @@ public class PharmacistService {
         pharmacist.setId(UUID.randomUUID());
         applyRequest(pharmacist, request, true);
         pharmacistRepo.save(pharmacist);
+        syncPrimaryBranch(pharmacist);
         invalidatePharmacistCaches(pharmacist.getId());
         return toResponse(pharmacist);
     }
@@ -117,6 +124,94 @@ public class PharmacistService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pharmacist not found"));
         applyRequest(pharmacist, request, false);
         pharmacistRepo.save(pharmacist);
+        syncPrimaryBranch(pharmacist);
+        invalidatePharmacistCaches(pharmacist.getId());
+        return toResponse(pharmacist);
+    }
+
+    public PharmacistResponse getOwnProfile(UUID actorId) {
+        if (actorId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        return pharmacistRepo.findById(actorId)
+                .map(this::toResponse)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pharmacist profile not found"));
+    }
+
+    public PharmacistResponse upsertOwnProfile(UUID actorId, UpsertPharmacistRequest request) {
+        if (actorId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        Pharmacist pharmacist = pharmacistRepo.findById(actorId).orElseGet(() -> {
+            Pharmacist created = new Pharmacist();
+            created.setId(actorId);
+            created.setVerified(false);
+            created.setRating(0d);
+            created.setReviewCount(0);
+            created.setCreatedAt(Instant.now());
+            return created;
+        });
+        applyRequest(pharmacist, request, pharmacist.getCreatedAt() == null);
+        pharmacistRepo.save(pharmacist);
+        syncPrimaryBranch(pharmacist);
+        invalidatePharmacistCaches(pharmacist.getId());
+        return toResponse(pharmacist);
+    }
+
+    public PharmacistResponse bootstrapProfile(UUID pharmacistId, InternalPharmacistBootstrapRequest request) {
+        if (pharmacistId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "pharmacistId is required");
+        }
+
+        Pharmacist pharmacist = pharmacistRepo.findById(pharmacistId).orElseGet(() -> {
+            Pharmacist created = new Pharmacist();
+            created.setId(pharmacistId);
+            created.setVerified(false);
+            created.setRating(0d);
+            created.setReviewCount(0);
+            created.setStatus("OFFLINE");
+            created.setExperienceYears(0);
+            created.setSpecialty("general");
+            created.setCreatedAt(Instant.now());
+            return created;
+        });
+
+        if (StringUtils.hasText(request == null ? null : request.name())) {
+            pharmacist.setName(request.name().trim());
+        } else if (!StringUtils.hasText(pharmacist.getName())) {
+            pharmacist.setName(pharmacist.getEmail());
+        }
+
+        if (StringUtils.hasText(request == null ? null : request.email())) {
+            pharmacist.setEmail(request.email().trim());
+        }
+        if (StringUtils.hasText(request == null ? null : request.phone())) {
+            pharmacist.setPhone(request.phone().trim());
+        }
+        if (StringUtils.hasText(request == null ? null : request.avatarUrl())) {
+            pharmacist.setAvatarUrl(request.avatarUrl().trim());
+        }
+        if (StringUtils.hasText(request == null ? null : request.specialty())) {
+            pharmacist.setSpecialty(request.specialty().trim());
+        } else if (!StringUtils.hasText(pharmacist.getSpecialty())) {
+            pharmacist.setSpecialty("general");
+        }
+        if (pharmacist.getRating() == null) {
+            pharmacist.setRating(0d);
+        }
+        if (pharmacist.getReviewCount() == null) {
+            pharmacist.setReviewCount(0);
+        }
+        if (!StringUtils.hasText(pharmacist.getStatus())) {
+            pharmacist.setStatus("OFFLINE");
+        }
+        if (pharmacist.getCreatedAt() == null) {
+            pharmacist.setCreatedAt(Instant.now());
+        }
+        pharmacist.setUpdatedAt(Instant.now());
+
+        pharmacistRepo.save(pharmacist);
+        syncPrimaryBranch(pharmacist);
         invalidatePharmacistCaches(pharmacist.getId());
         return toResponse(pharmacist);
     }
@@ -126,6 +221,7 @@ public class PharmacistService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pharmacist not found");
         }
         pharmacistRepo.deleteById(id);
+        branchClient.assignPrimaryBranch(id, null, "PHARMACIST");
         invalidatePharmacistCaches(id);
     }
 
@@ -261,6 +357,7 @@ public class PharmacistService {
         pharmacist.setWorkingHours(normalize(request.workingHours()));
         pharmacist.setConsultationModesJson(toJson(request.consultationModes()));
         pharmacist.setLicenseNumber(normalize(request.licenseNumber()));
+        pharmacist.setBranchId(request.branchId());
         Instant now = Instant.now();
         if (isCreate) {
             pharmacist.setCreatedAt(now);
@@ -276,6 +373,25 @@ public class PharmacistService {
         return StringUtils.hasText(value) ? value.trim().toLowerCase() : "_";
     }
 
+    private Sort resolveSort(String sortBy, String sortDir) {
+        String requestedField = StringUtils.hasText(sortBy) ? sortBy.trim() : "createdAt";
+        String requestedDirection = StringUtils.hasText(sortDir) ? sortDir.trim() : "desc";
+
+        String property = switch (requestedField.toLowerCase(Locale.ROOT)) {
+            case "name" -> "name";
+            case "updatedat" -> "updatedAt";
+            case "experienceyears" -> "experienceYears";
+            case "rating" -> "rating";
+            default -> "createdAt";
+        };
+
+        Sort.Direction direction = "asc".equalsIgnoreCase(requestedDirection)
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+
+        return Sort.by(direction, property).and(Sort.by(Sort.Direction.DESC, "createdAt"));
+    }
+
     private void invalidatePharmacistCaches(UUID pharmacistId) {
         cacheHelper.evictByPattern("pharmacist:pharmacist:list:*");
         if (pharmacistId != null) {
@@ -284,6 +400,10 @@ public class PharmacistService {
     }
 
     private PharmacistResponse toResponse(Pharmacist pharmacist) {
+        UUID branchId = pharmacist.getBranchId() != null
+                ? pharmacist.getBranchId()
+                : branchClient.getPrimaryBranchId(pharmacist.getId(), "PHARMACIST");
+        BranchClient.BranchSummary branch = branchClient.getBranch(branchId);
         return new PharmacistResponse(
                 pharmacist.getId(),
                 pharmacist.getCode(),
@@ -304,7 +424,15 @@ public class PharmacistService {
                 fromJson(pharmacist.getWorkingDaysJson()),
                 pharmacist.getWorkingHours(),
                 fromJson(pharmacist.getConsultationModesJson()),
-                pharmacist.getLicenseNumber());
+                pharmacist.getLicenseNumber(),
+                branchId,
+                branch == null ? null : branch.name(),
+                pharmacist.getCreatedAt(),
+                pharmacist.getUpdatedAt());
+    }
+
+    private void syncPrimaryBranch(Pharmacist pharmacist) {
+        branchClient.assignPrimaryBranch(pharmacist.getId(), pharmacist.getBranchId(), "PHARMACIST");
     }
 
     private ShiftResponse toShiftResponse(PharmacistShift shift) {

@@ -32,21 +32,26 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 @Import(CommonSecurityConfig.class)
 public class SecurityConfig {
 
-        @Value("${app.cors.allowed-origins:http://localhost:3000}")
-        private String corsAllowedOrigins;
+        @Value("${CORS_ALLOWED_ORIGIN_PATTERNS:${app.cors.allowed-origin-patterns:http://localhost:3000,http://192.168.56.1:3000,http://localhost:*}}")
+        private String corsAllowedOriginPatterns;
+
+        @Value("${app.security.enabled:true}")
+        private boolean securityEnabled;
 
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
-                List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
+                List<String> originPatterns = Arrays.stream(corsAllowedOriginPatterns.split(","))
                                 .map(String::trim)
                                 .filter(s -> !s.isBlank())
                                 .collect(Collectors.toList());
 
                 CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:3000") : origins);
+                config.setAllowedOriginPatterns(
+                                originPatterns.isEmpty() ? List.of("http://localhost:3000", "http://192.168.56.1:3000")
+                                                : originPatterns);
                 config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-                config.setAllowedHeaders(
-                                List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+                config.setAllowedHeaders(List.of("*"));
+                config.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
                 config.setMaxAge(3600L);
                 config.setAllowCredentials(false);
 
@@ -62,7 +67,16 @@ public class SecurityConfig {
                 http
                                 .csrf(csrf -> csrf.disable())
                                 .cors(Customizer.withDefaults())
-                                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+                if (!securityEnabled) {
+                        http.authorizeHttpRequests(auth -> auth
+                                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                        .anyRequest().permitAll());
+                        return http.build();
+                }
+
+                http
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                                                 .requestMatchers(new AntPathRequestMatcher("/actuator/**")).permitAll()

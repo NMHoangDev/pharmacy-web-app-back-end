@@ -29,17 +29,17 @@ payment:
   events:
     topic: ${PAYMENT_EVENTS_TOPIC:payment.events}
   vnpay:
-    tmn-code: QJ6WZ8I1
-    hash-secret: ECDPF2OGRKR3S9IZTWSKG9BG51GED68U
-    url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-    return-url: https://pet-conflicts-antarctica-all.trycloudflare.com/api/payments/vnpay/return
-    ipn-url: https://pet-conflicts-antarctica-all.trycloudflare.com/api/payments/vnpay/ipn
-    version: 2.1.0
-    command: pay
-    curr-code: VND
-    locale-default: vn
-    expire-minutes: 15
-    timezone: Asia/Ho_Chi_Minh
+    tmn-code: ${VNP_TMN_CODE:QJ6WZ8I1}
+    hash-secret: ${VNP_HASH_SECRET:ECDPF2OGRKR3S9IZTWSKG9BG51GED68U}
+    url: ${VNP_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+    return-url: ${VNP_RETURN_URL:https://pet-conflicts-antarctica-all.trycloudflare.com/api/payments/vnpay/return}
+    ipn-url: ${VNP_IPN_URL:https://pet-conflicts-antarctica-all.trycloudflare.com/api/payments/vnpay/ipn}
+    version: ${VNP_VERSION:2.1.0}
+    command: ${VNP_COMMAND:pay}
+    curr-code: ${VNP_CURR_CODE:VND}
+    locale-default: ${VNP_LOCALE_DEFAULT:vn}
+    expire-minutes: ${VNP_EXPIRE_MINUTES:15}
+    timezone: ${VNP_TIMEZONE:Asia/Ho_Chi_Minh}
   zalopay:
     app-id: ${ZLP_APP_ID:553}
     key1: ${ZLP_KEY1:9ph31993439}

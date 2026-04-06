@@ -69,11 +69,7 @@ public class ConsultationSessionController {
     public ResponseEntity<ConsultationResponse> getSessionDetails(
             @PathVariable String roomId,
             @AuthenticationPrincipal Jwt jwt) {
-        // Implement getSessionDetails in service if missing, using existing
-        // findByRoomId
-        return ResponseEntity.ok(consultationService.joinSession(roomId, resolveActorId(jwt))); // joinSession also
-                                                                                                // returns
-                                                                                                // details
+        return ResponseEntity.ok(consultationService.getSessionDetails(roomId, resolveActorId(jwt)));
     }
 
     @PutMapping("/consultations/{appointmentId}/notes")

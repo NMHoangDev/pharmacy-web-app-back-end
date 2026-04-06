@@ -22,6 +22,13 @@ CREATE TABLE IF NOT EXISTS drugs (
         status VARCHAR(16) NOT NULL CHECK (status IN ('ACTIVE','INACTIVE')),
         prescription_required BOOLEAN DEFAULT FALSE,
         description TEXT,
+        dosage_form TEXT,
+        packaging TEXT,
+        active_ingredient TEXT,
+        indications TEXT,
+        usage_dosage TEXT,
+        contraindications_warning TEXT,
+        other_information TEXT,
         image_url MEDIUMTEXT,
         attributes JSON,
         created_at TIMESTAMP DEFAULT NOW(),
@@ -92,6 +99,133 @@ SET @sql = IF(@exists = 0,
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'dosage_form';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN dosage_form TEXT',
+        'SELECT "dosage_form already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'packaging';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN packaging TEXT',
+        'SELECT "packaging already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'active_ingredient';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN active_ingredient TEXT',
+        'SELECT "active_ingredient already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'indications';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN indications TEXT',
+        'SELECT "indications already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'usage_dosage';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN usage_dosage TEXT',
+        'SELECT "usage_dosage already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'contraindications_warning';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN contraindications_warning TEXT',
+        'SELECT "contraindications_warning already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @exists
+ FROM information_schema.columns
+ WHERE table_schema = @schema AND table_name = 'drugs' AND column_name = 'other_information';
+SET @sql = IF(@exists = 0,
+        'ALTER TABLE drugs ADD COLUMN other_information TEXT',
+        'SELECT "other_information already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+UPDATE drugs
+   SET dosage_form = COALESCE(
+        dosage_form,
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.dosageForm')),
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.form'))
+   )
+ WHERE attributes IS NOT NULL;
+
+UPDATE drugs
+   SET packaging = COALESCE(
+        packaging,
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.packaging')),
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.packing'))
+   )
+ WHERE attributes IS NOT NULL;
+
+UPDATE drugs
+   SET active_ingredient = COALESCE(
+        active_ingredient,
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.activeIngredient')),
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.ingredient'))
+   )
+ WHERE attributes IS NOT NULL;
+
+UPDATE drugs
+   SET indications = COALESCE(
+        indications,
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.indications')),
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.usage'))
+   )
+ WHERE attributes IS NOT NULL;
+
+UPDATE drugs
+   SET usage_dosage = COALESCE(
+        usage_dosage,
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.usageDosage')),
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.dosage'))
+   )
+ WHERE attributes IS NOT NULL;
+
+UPDATE drugs
+   SET contraindications_warning = COALESCE(
+        contraindications_warning,
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.contraindicationsWarning')),
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.contraindications')),
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.warning'))
+   )
+ WHERE attributes IS NOT NULL;
+
+UPDATE drugs
+   SET other_information = COALESCE(
+        other_information,
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.otherInformation')),
+        JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.extraInfo'))
+   )
+ WHERE attributes IS NOT NULL;
 
 SELECT COUNT(*) INTO @exists
  FROM information_schema.columns

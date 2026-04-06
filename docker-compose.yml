@@ -69,13 +69,43 @@ services:
     ports:
       - "8087:8087"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8087/actuator/health/liveness"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8087/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
       start_period: 60s
     depends_on:
       config-server:
+        condition: service_healthy
+      admin-bff-service:
+        condition: service_healthy
+      appointment-service:
+        condition: service_healthy
+      branch-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      content-service:
+        condition: service_healthy
+      discount-service:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      pharmacist-service:
+        condition: service_healthy
+      review-service:
+        condition: service_healthy
+      user-service:
         condition: service_healthy
     networks:
       - app-net
@@ -92,13 +122,23 @@ services:
     expose:
       - "7010"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7010/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7010/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
       start_period: 60s
     depends_on:
       config-server:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      pharmacist-service:
         condition: service_healthy
     networks:
       - app-net
@@ -116,7 +156,7 @@ services:
     expose:
       - "7024"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7024/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7024/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -141,7 +181,7 @@ services:
     expose:
       - "7030"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7030/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7030/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -166,7 +206,7 @@ services:
     expose:
       - "7026"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7026/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7026/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -190,7 +230,7 @@ services:
     expose:
       - "7017"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7017/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7017/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -215,7 +255,33 @@ services:
     expose:
       - "7031"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7031/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7031/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      config-server:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-net
+
+  discount-service:
+    build:
+      context: .
+      dockerfile: user-server/discount-service/Dockerfile
+    container_name: discount-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KEYCLOAK_ISSUER_URI: http://host.docker.internal:8180/realms/pharmacy
+      KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8180/realms/pharmacy/protocol/openid-connect/certs
+    expose:
+      - "7035"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7035/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -244,7 +310,7 @@ services:
     expose:
       - "7070"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7070/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7070/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -268,7 +334,7 @@ services:
     expose:
       - "7018"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7018/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7018/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -292,7 +358,7 @@ services:
     expose:
       - "7021"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7021/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7021/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -317,7 +383,7 @@ services:
     expose:
       - "7022"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7022/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7022/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -341,7 +407,7 @@ services:
     expose:
       - "7019"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7019/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7019/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -365,7 +431,7 @@ services:
     expose:
       - "7020"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7020/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7020/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -389,7 +455,7 @@ services:
     expose:
       - "7025"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7025/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7025/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -413,7 +479,7 @@ services:
     expose:
       - "7023"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7023/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7023/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -438,7 +504,7 @@ services:
     expose:
       - "7016"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7016/actuator/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7016/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10

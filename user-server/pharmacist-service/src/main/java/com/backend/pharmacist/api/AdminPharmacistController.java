@@ -5,6 +5,7 @@ import com.backend.pharmacist.service.PharmacistService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin/pharmacists")
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminPharmacistController {
 
     private final PharmacistService pharmacistService;
@@ -31,7 +33,9 @@ public class AdminPharmacistController {
             @RequestParam(name = "verification", required = false) String verification,
             @RequestParam(name = "branchId", required = false) UUID branchId,
             @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "size", defaultValue = "20") int size) {
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "sortBy", required = false) String sortBy,
+            @RequestParam(name = "sortDir", required = false) String sortDir) {
         Boolean verified = null;
         if ("verified".equalsIgnoreCase(verification)) {
             verified = true;
@@ -40,7 +44,7 @@ public class AdminPharmacistController {
         }
         return ResponseEntity
                 .ok(pharmacistService.list(query, specialty, status, mode, experience, verified, page, size,
-                        branchId));
+                        branchId, sortBy, sortDir));
     }
 
     @PostMapping

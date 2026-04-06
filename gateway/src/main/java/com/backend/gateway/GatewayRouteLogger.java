@@ -37,7 +37,7 @@ public class GatewayRouteLogger implements GlobalFilter, Ordered {
                 authMasked = auth;
             }
         }
-        log.info("GATEWAY incoming: method={} path={} routeId={} target={} authPresent={} authMasked={}", method, path,
+        log.debug("GATEWAY incoming: method={} path={} routeId={} target={} authPresent={} authMasked={}", method, path,
                 routeId, target, authPresent, authMasked);
         return chain.filter(exchange);
     }

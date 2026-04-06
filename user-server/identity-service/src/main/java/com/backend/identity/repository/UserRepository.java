@@ -18,5 +18,7 @@ public interface UserRepository {
 
     UserAccount save(UserAccount account);
 
+    UserAccount upsert(UserAccount account);
+
     void updatePassword(UUID id, String passwordHash);
 }

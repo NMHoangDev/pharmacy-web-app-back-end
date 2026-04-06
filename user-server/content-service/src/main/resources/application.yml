@@ -3,6 +3,11 @@ spring:
     import: optional:configserver:http://config-server:8888
   application:
     name: content-service
+  cloud:
+    bus:
+      enabled: ${SPRING_CLOUD_BUS_ENABLED:false}
+    stream:
+      enabled: ${SPRING_CLOUD_STREAM_ENABLED:false}
   data:
     redis:
       host: localhost
@@ -48,7 +53,16 @@ management:
 logging:
   level:
     org.hibernate.SQL: WARN
+    org.apache.kafka: OFF
+    org.springframework.kafka: OFF
+    org.springframework.integration.kafka: OFF
+    org.springframework.kafka.listener: OFF
+    org.springframework.kafka.core: OFF
+    org.springframework.kafka.support: OFF
 content:
+  messaging:
+    kafka:
+      enabled: ${CONTENT_MESSAGING_KAFKA_ENABLED:false}
   thread:
     owner-edit-minutes: 15
 cache:

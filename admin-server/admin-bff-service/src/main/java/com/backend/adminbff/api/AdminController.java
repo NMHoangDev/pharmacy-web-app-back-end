@@ -1,9 +1,13 @@
 package com.backend.adminbff.api;
 
+import com.backend.adminbff.client.AdminIdentityClient;
 import com.backend.adminbff.client.AdminOrderClient;
 import com.backend.adminbff.client.AdminUserClient;
 import com.backend.adminbff.dto.AdminOrderResponse;
+import com.backend.adminbff.dto.AdminUserIdentitySummary;
+import com.backend.adminbff.dto.AdminUserListItem;
 import com.backend.adminbff.dto.AdminUserProfile;
+import com.backend.adminbff.dto.UserOrderCountResponse;
 import com.backend.adminbff.dto.UpsertAdminUserRequest;
 import com.backend.adminbff.service.DashboardAnalyticsService;
 import jakarta.validation.Valid;
@@ -17,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -25,14 +30,17 @@ public class AdminController {
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
     private final AdminUserClient adminUserClient;
+    private final AdminIdentityClient adminIdentityClient;
     private final AdminOrderClient adminOrderClient;
     private final DashboardAnalyticsService dashboardAnalyticsService;
 
     public AdminController(
             AdminUserClient adminUserClient,
+            AdminIdentityClient adminIdentityClient,
             AdminOrderClient adminOrderClient,
             DashboardAnalyticsService dashboardAnalyticsService) {
         this.adminUserClient = adminUserClient;
+        this.adminIdentityClient = adminIdentityClient;
         this.adminOrderClient = adminOrderClient;
         this.dashboardAnalyticsService = dashboardAnalyticsService;
     }
@@ -89,8 +97,6 @@ public class AdminController {
 
     @GetMapping("/dashboard/summary")
     public ResponseEntity<Map<String, Object>> dashboardSummary() {
-        // Map.of supports up to 10 entries; Map.ofEntries keeps this response literal
-        // but valid.
         return ResponseEntity.ok(Map.ofEntries(
                 Map.entry("ordersToday", 0),
                 Map.entry("orders7d", 0),
@@ -209,8 +215,46 @@ public class AdminController {
 
     // Users
     @GetMapping("/users")
-    public ResponseEntity<List<AdminUserProfile>> listUsers() {
-        return ResponseEntity.ok(adminUserClient.listUsers());
+    public ResponseEntity<List<AdminUserListItem>> listUsers() {
+        List<AdminUserProfile> users = adminUserClient.listUsers();
+        Map<UUID, AdminUserIdentitySummary> identityByUserId = adminIdentityClient.listUserIdentitySummaries().stream()
+                .collect(Collectors.toMap(
+                        AdminUserIdentitySummary::id,
+                        identity -> identity,
+                        (left, right) -> left));
+        Map<UUID, Long> orderCountByUserId = adminOrderClient.countPlacedOrdersByUser().stream()
+                .collect(Collectors.toMap(
+                        UserOrderCountResponse::userId,
+                        UserOrderCountResponse::orderCount,
+                        Long::sum));
+
+        List<AdminUserListItem> items = users.stream()
+                .map(user -> {
+                    AdminUserIdentitySummary identity = identityByUserId.get(user.id());
+                    return new AdminUserListItem(
+                            user.id(),
+                            user.email(),
+                            user.phone(),
+                            user.fullName(),
+                            user.fullName(),
+                            user.avatarBase64(),
+                            user.createdAt(),
+                            orderCountByUserId.getOrDefault(user.id(), 0L),
+                            identity != null ? identity.role() : "customer",
+                            identity != null ? identity.status() : "active",
+                            identity != null ? identity.keycloakRoles() : List.of(),
+                            identity == null || identity.enabled(),
+                            identity != null && identity.emailVerified());
+                })
+                .sorted((left, right) -> compareCreatedAtDesc(left.createdAt(), right.createdAt()))
+                .toList();
+
+        logger.info("Admin listUsers response size={}, identityCount={}, orderCountEntries={}",
+                items.size(),
+                identityByUserId.size(),
+                orderCountByUserId.size());
+
+        return ResponseEntity.ok(items);
     }
 
     @GetMapping("/users/{id}")
@@ -238,6 +282,30 @@ public class AdminController {
     @PostMapping("/users/{id}/status")
     public ResponseEntity<Map<String, Object>> updateUserStatus(@PathVariable UUID id, @RequestParam String status) {
         return ResponseEntity.ok(Map.of("id", id, "status", status));
+    }
+
+    private static int compareCreatedAtDesc(java.time.Instant left, java.time.Instant right) {
+        if (left == null && right == null) {
+            return 0;
+        }
+        if (left == null) {
+            return 1;
+        }
+        if (right == null) {
+            return -1;
+        }
+        return right.compareTo(left);
+    }
+
+    private static boolean isPlacedOrderStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return false;
+        }
+        return switch (status.trim().toUpperCase()) {
+            case "PENDING_PAYMENT", "PLACED", "CONFIRMED", "SHIPPING", "COMPLETED" -> true;
+            case "DRAFT", "CANCELED" -> false;
+            default -> false;
+        };
     }
 
     // Reviews
@@ -292,7 +360,7 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("sent", true, "to", to));
     }
 
-    // Audit (placeholder)
+    // Audit 
     @PreAuthorize("hasAnyRole('ADMIN','AUDITOR')")
     @GetMapping("/audit")
     public ResponseEntity<Map<String, Object>> audit(@RequestParam(required = false) String actor,

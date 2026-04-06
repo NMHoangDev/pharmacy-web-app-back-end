@@ -57,7 +57,7 @@ public class CacheHelper {
 
             resetFailureState();
             log.info("[CACHE MISS] service={} key={}", CacheConstants.SERVICE_NAME, key);
-        } catch (DataAccessException ex) {
+        } catch (RuntimeException ex) {
             onRedisFailure(key, ex);
             log.warn("[CACHE FALLBACK] service={} key={}", CacheConstants.SERVICE_NAME, key);
             return dbSupplier.get();
@@ -73,7 +73,7 @@ public class CacheHelper {
             redisObjectTemplate.opsForValue().set(key, value, ttl);
             resetFailureState();
             log.info("[CACHE SET] service={} key={} ttlSeconds={}", CacheConstants.SERVICE_NAME, key, ttl.getSeconds());
-        } catch (DataAccessException ex) {
+        } catch (RuntimeException ex) {
             onRedisFailure(key, ex);
         }
         return value;

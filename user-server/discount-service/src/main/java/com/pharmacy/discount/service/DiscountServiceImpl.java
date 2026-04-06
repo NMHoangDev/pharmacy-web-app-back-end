@@ -12,7 +12,6 @@ import com.pharmacy.discount.repository.*;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -175,7 +174,6 @@ public class DiscountServiceImpl implements DiscountService {
     }
 
     @Override
-    @Cacheable(cacheNames = "active_discounts", key = "'active_discounts'", unless = "#result == null || #result.isEmpty()")
     public List<CampaignResponse> getActiveCampaigns() {
         LocalDateTime now = LocalDateTime.now();
         List<Discount> active = discountRepository

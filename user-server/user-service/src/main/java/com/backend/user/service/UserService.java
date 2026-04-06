@@ -188,7 +188,13 @@ public class UserService {
     }
 
     private ProfileResponse toProfile(User u) {
-        return new ProfileResponse(u.getId(), u.getEmail(), u.getPhone(), u.getFullName(), u.getAvatarBase64());
+        return new ProfileResponse(
+                u.getId(),
+                u.getEmail(),
+                u.getPhone(),
+                u.getFullName(),
+                u.getAvatarBase64(),
+                u.getCreatedAt());
     }
 
     private ResponseStatusException notFound(UUID id) {

@@ -13,6 +13,12 @@ spring:
     keycloak:
       roles-source: realm
       client-id: pharmacy-app
+  cache:
+    type: simple
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 server:
   port: ${SERVER_PORT:7010}
 management:
@@ -20,8 +26,19 @@ management:
     web:
       exposure:
         include: health,info,refresh,busrefresh
+  health:
+    redis:
+      enabled: false
 services:
   user:
     url: http://localhost:7016
   order:
     url: http://localhost:7019
+  catalog:
+    url: http://localhost:7017
+  inventory:
+    url: http://localhost:7018
+  pharmacist:
+    url: http://localhost:7025
+  identity:
+    url: http://localhost:7070

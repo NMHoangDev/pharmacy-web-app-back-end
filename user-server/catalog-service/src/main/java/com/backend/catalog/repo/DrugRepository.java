@@ -32,7 +32,10 @@ public interface DrugRepository extends JpaRepository<Drug, UUID> {
 
         @Query("SELECT d.id as id, d.sku as sku, d.name as name, d.slug as slug, d.categoryId as categoryId, "
                         + "d.costPrice as costPrice, d.salePrice as baseSalePrice, d.status as globalStatus, d.prescriptionRequired as prescriptionRequired, "
-                        + "d.description as description, d.imageUrl as imageUrl, d.attributes as attributes, "
+                        + "d.description as description, d.dosageForm as dosageForm, d.packaging as packaging, "
+                        + "d.activeIngredient as activeIngredient, d.indications as indications, d.usageDosage as usageDosage, "
+                        + "d.contraindicationsWarning as contraindicationsWarning, d.otherInformation as otherInformation, "
+                        + "d.imageUrl as imageUrl, d.attributes as attributes, "
                         + "s.priceOverride as priceOverride, s.status as branchStatus, s.note as note "
                         + "FROM Drug d LEFT JOIN DrugBranchSetting s ON s.drugId = d.id AND s.branchId = :branchId "
                         + "WHERE (:q IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%',:q,'%')) "
@@ -46,7 +49,10 @@ public interface DrugRepository extends JpaRepository<Drug, UUID> {
 
         @Query("SELECT d.id as id, d.sku as sku, d.name as name, d.slug as slug, d.categoryId as categoryId, "
                         + "d.costPrice as costPrice, d.salePrice as baseSalePrice, d.status as globalStatus, d.prescriptionRequired as prescriptionRequired, "
-                        + "d.description as description, d.imageUrl as imageUrl, d.attributes as attributes, "
+                        + "d.description as description, d.dosageForm as dosageForm, d.packaging as packaging, "
+                        + "d.activeIngredient as activeIngredient, d.indications as indications, d.usageDosage as usageDosage, "
+                        + "d.contraindicationsWarning as contraindicationsWarning, d.otherInformation as otherInformation, "
+                        + "d.imageUrl as imageUrl, d.attributes as attributes, "
                         + "s.priceOverride as priceOverride, s.status as branchStatus, s.note as note "
                         + "FROM Drug d LEFT JOIN DrugBranchSetting s ON s.drugId = d.id AND s.branchId = :branchId "
                         + "WHERE (:q IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%',:q,'%')) "
@@ -59,7 +65,10 @@ public interface DrugRepository extends JpaRepository<Drug, UUID> {
 
         @Query("SELECT d.id as id, d.sku as sku, d.name as name, d.slug as slug, d.categoryId as categoryId, "
                         + "d.costPrice as costPrice, d.salePrice as baseSalePrice, d.status as globalStatus, d.prescriptionRequired as prescriptionRequired, "
-                        + "d.description as description, d.imageUrl as imageUrl, d.attributes as attributes, "
+                        + "d.description as description, d.dosageForm as dosageForm, d.packaging as packaging, "
+                        + "d.activeIngredient as activeIngredient, d.indications as indications, d.usageDosage as usageDosage, "
+                        + "d.contraindicationsWarning as contraindicationsWarning, d.otherInformation as otherInformation, "
+                        + "d.imageUrl as imageUrl, d.attributes as attributes, "
                         + "s.priceOverride as priceOverride, s.status as branchStatus, s.note as note "
                         + "FROM Drug d LEFT JOIN DrugBranchSetting s ON s.drugId = d.id AND s.branchId = :branchId "
                         + "WHERE d.id = :drugId")
@@ -68,7 +77,10 @@ public interface DrugRepository extends JpaRepository<Drug, UUID> {
 
         @Query("SELECT d.id as id, d.sku as sku, d.name as name, d.slug as slug, d.categoryId as categoryId, "
                         + "d.costPrice as costPrice, d.salePrice as baseSalePrice, d.status as globalStatus, d.prescriptionRequired as prescriptionRequired, "
-                        + "d.description as description, d.imageUrl as imageUrl, d.attributes as attributes, "
+                        + "d.description as description, d.dosageForm as dosageForm, d.packaging as packaging, "
+                        + "d.activeIngredient as activeIngredient, d.indications as indications, d.usageDosage as usageDosage, "
+                        + "d.contraindicationsWarning as contraindicationsWarning, d.otherInformation as otherInformation, "
+                        + "d.imageUrl as imageUrl, d.attributes as attributes, "
                         + "s.priceOverride as priceOverride, s.status as branchStatus, s.note as note "
                         + "FROM Drug d LEFT JOIN DrugBranchSetting s ON s.drugId = d.id AND s.branchId = :branchId "
                         + "WHERE d.slug = :slug")

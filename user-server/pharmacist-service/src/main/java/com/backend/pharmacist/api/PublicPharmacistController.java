@@ -29,10 +29,12 @@ public class PublicPharmacistController {
             @RequestParam(name = "verified", required = false) Boolean verified,
             @RequestParam(name = "branchId", required = false) UUID branchId,
             @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "size", defaultValue = "20") int size) {
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "sortBy", required = false) String sortBy,
+            @RequestParam(name = "sortDir", required = false) String sortDir) {
         return ResponseEntity
                 .ok(pharmacistService.list(query, specialty, status, mode, experience, verified, page, size,
-                        branchId));
+                        branchId, sortBy, sortDir));
     }
 
     @GetMapping("/online")

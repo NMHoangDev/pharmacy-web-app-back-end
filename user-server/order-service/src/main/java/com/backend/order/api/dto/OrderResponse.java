@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record OrderResponse(
         UUID id,
+        String orderCode,
         UUID userId,
         UUID branchId,
         UUID fulfillmentBranchId,

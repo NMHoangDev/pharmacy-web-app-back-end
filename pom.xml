@@ -53,6 +53,7 @@
     <module>user-server/notification-service</module>
     <module>user-server/media-service</module>
     <module>user-server/content-service</module>
+    <module>user-server/ai-service</module>
  
 
     <!-- admin-side services -->

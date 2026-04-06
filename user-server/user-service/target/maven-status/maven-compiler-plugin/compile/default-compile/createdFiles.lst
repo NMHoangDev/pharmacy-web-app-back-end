@@ -6,6 +6,7 @@ com\backend\user\cache\CacheConstants.class
 com\backend\user\repo\HealthProfileRepository.class
 com\backend\user\api\dto\HealthProfileResponse.class
 com\backend\user\cache\CacheInvalidationListener.class
+com\backend\user\api\PublicPharmacistApi.class
 com\backend\user\model\Address.class
 com\backend\user\config\RedisConfig.class
 com\backend\user\service\UserService.class

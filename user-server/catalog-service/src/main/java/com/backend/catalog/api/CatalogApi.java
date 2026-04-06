@@ -5,6 +5,7 @@ import com.backend.catalog.api.dto.CategoryRequest;
 import com.backend.catalog.api.dto.DrugAdminDto;
 import com.backend.catalog.api.dto.DrugPublicDto;
 import com.backend.catalog.api.dto.DrugRequest;
+import com.backend.catalog.api.dto.DrugStatusRequest;
 import com.backend.catalog.model.Category;
 import com.backend.catalog.service.CatalogService;
 import jakarta.validation.Valid;
@@ -104,6 +105,12 @@ public class CatalogApi {
     public ResponseEntity<DrugAdminDto> updateDrug(@PathVariable("id") UUID id,
             @RequestBody @Valid DrugRequest req) {
         return ResponseEntity.ok(catalogService.updateDrug(id, req));
+    }
+
+    @PatchMapping("/internal/products/{id}/status")
+    public ResponseEntity<DrugAdminDto> updateDrugStatus(@PathVariable("id") UUID id,
+            @RequestBody @Valid DrugStatusRequest req) {
+        return ResponseEntity.ok(catalogService.updateDrugStatus(id, req.status()));
     }
 
     @PutMapping("/internal/products/{id}/branch-settings")

@@ -68,10 +68,59 @@ public class ContentApi {
                 safePage, safeSize, sortBy, sortDir, isAdmin));
     }
 
+    @GetMapping("/public/posts")
+    public ResponseEntity<PagedResponse<PostListItem>> listPublicPosts(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "tag", required = false) String tag,
+            @RequestParam(name = "topic", required = false) String topic,
+            @RequestParam(name = "type", required = false) String type,
+            @RequestParam(name = "level", required = false) String level,
+            @RequestParam(name = "featured", required = false) Boolean featured,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "pageSize", required = false) Integer pageSize,
+            @RequestParam(name = "sortBy", required = false) String sortBy,
+            @RequestParam(name = "sortDir", required = false) String sortDir) {
+        int safePage = page == null ? 1 : page;
+        int safeSize = pageSize == null ? 10 : pageSize;
+        return ResponseEntity.ok(postService.list(q, tag, topic, type, level, featured, null,
+                safePage, safeSize, sortBy, sortDir, false));
+    }
+
+    @GetMapping("/admin/posts")
+    @PreAuthorize("hasAnyRole('ADMIN','MOD','EDITOR')")
+    public ResponseEntity<PagedResponse<PostListItem>> listAdminPosts(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "tag", required = false) String tag,
+            @RequestParam(name = "topic", required = false) String topic,
+            @RequestParam(name = "type", required = false) String type,
+            @RequestParam(name = "level", required = false) String level,
+            @RequestParam(name = "featured", required = false) Boolean featured,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "pageSize", required = false) Integer pageSize,
+            @RequestParam(name = "sortBy", required = false) String sortBy,
+            @RequestParam(name = "sortDir", required = false) String sortDir) {
+        int safePage = page == null ? 1 : page;
+        int safeSize = pageSize == null ? 10 : pageSize;
+        return ResponseEntity.ok(postService.list(q, tag, topic, type, level, featured, status,
+                safePage, safeSize, sortBy, sortDir, true));
+    }
+
     @GetMapping("/posts/{slug}")
     public ResponseEntity<PostDetailResponse> getPost(@PathVariable String slug) {
         boolean isAdmin = SecurityUtils.hasRole("ADMIN") || SecurityUtils.hasRole("MOD");
         return ResponseEntity.ok(postService.getBySlug(slug, isAdmin));
+    }
+
+    @GetMapping("/public/posts/{slug}")
+    public ResponseEntity<PostDetailResponse> getPublicPost(@PathVariable String slug) {
+        return ResponseEntity.ok(postService.getBySlug(slug, false));
+    }
+
+    @GetMapping("/admin/posts/{slug}")
+    @PreAuthorize("hasAnyRole('ADMIN','MOD','EDITOR')")
+    public ResponseEntity<PostDetailResponse> getAdminPost(@PathVariable String slug) {
+        return ResponseEntity.ok(postService.getBySlug(slug, true));
     }
 
     @PostMapping("/posts")
@@ -113,14 +162,38 @@ public class ContentApi {
         return ResponseEntity.ok(Map.of("id", id, "deleted", true));
     }
 
-    @PostMapping("/posts/{id}/view")
+    @GetMapping("/posts/{id}/view")
     public ResponseEntity<Map<String, Object>> viewPost(@PathVariable UUID id) {
+        postService.incrementView(id);
+        return ResponseEntity.ok(Map.of("id", id, "viewed", true));
+    }
+
+    @PostMapping("/posts/{id}/view")
+    public ResponseEntity<Map<String, Object>> viewPostViaPost(@PathVariable UUID id) {
         postService.incrementView(id);
         return ResponseEntity.ok(Map.of("id", id, "viewed", true));
     }
 
     @GetMapping("/questions")
     public ResponseEntity<PagedResponse<QuestionListItem>> listQuestions(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "tag", required = false) String tag,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "hasPharmacistAnswer", required = false) Boolean hasPharmacistAnswer,
+            @RequestParam(name = "askerId", required = false) UUID askerId,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "pageSize", required = false) Integer pageSize,
+            @RequestParam(name = "sortBy", required = false) String sortBy,
+            @RequestParam(name = "sortDir", required = false) String sortDir) {
+        int safePage = page == null ? 1 : page;
+        int safeSize = pageSize == null ? 10 : pageSize;
+        return ResponseEntity.ok(threadService.list(q, tag, status, hasPharmacistAnswer, askerId,
+                safePage, safeSize, sortBy, sortDir));
+    }
+
+    @GetMapping("/admin/questions")
+    @PreAuthorize("hasAnyRole('ADMIN','MOD','EDITOR')")
+    public ResponseEntity<PagedResponse<QuestionListItem>> listAdminQuestions(
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "tag", required = false) String tag,
             @RequestParam(name = "status", required = false) String status,

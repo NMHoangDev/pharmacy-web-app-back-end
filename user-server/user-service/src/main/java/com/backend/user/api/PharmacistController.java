@@ -20,7 +20,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('PHARMACIST', 'ADMIN')")
 public class PharmacistController {
 
     private final PharmacistProfileRepository profileRepository;

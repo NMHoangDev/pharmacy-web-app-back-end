@@ -46,7 +46,7 @@ public class Thread {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "moderation_status", nullable = false, length = 16)
-    private ModerationStatus moderationStatus = ModerationStatus.PENDING;
+    private ModerationStatus moderationStatus = ModerationStatus.PUBLISHED;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();

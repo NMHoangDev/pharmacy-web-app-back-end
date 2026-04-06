@@ -1,6 +1,7 @@
 package com.backend.order.api;
 
 import com.backend.order.api.dto.OrderResponse;
+import com.backend.order.api.dto.UserOrderCountResponse;
 import com.backend.order.api.dto.AssignBranchRequest;
 import com.backend.order.api.dto.BranchAvailabilityResponse;
 import com.backend.order.service.OrderService;
@@ -27,6 +28,11 @@ public class AdminOrderApi {
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) UUID branchId) {
         return ResponseEntity.ok(orderService.listAll(userId, status, branchId));
+    }
+
+    @GetMapping("/user-counts")
+    public ResponseEntity<List<UserOrderCountResponse>> countOrdersByUser() {
+        return ResponseEntity.ok(orderService.countPlacedOrdersByUser());
     }
 
     @GetMapping("/{id}")

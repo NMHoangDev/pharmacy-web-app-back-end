@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -153,7 +154,7 @@ public class OrderService {
 
                 boolean isOnlinePayment = isOnlinePayment(req.paymentMethod());
                 order.setStatus(isOnlinePayment ? OrderStatus.PENDING_PAYMENT : OrderStatus.PLACED);
-                order.setPaymentStatus(isOnlinePayment ? "UNPAID" : "PENDING");
+                order.setPaymentStatus("UNPAID");
                 orderRepository.save(order);
 
                 List<OrderItem> orderItems = Objects.requireNonNull(req.items(), "items required").stream()
@@ -194,7 +195,7 @@ public class OrderService {
                 order.setStatus(OrderStatus.CONFIRMED);
                 order.setUpdatedAt(Instant.now());
                 order.setPaymentMethod(req.provider());
-                order.setPaymentStatus(PaymentStatus.PAID.name());
+                order.setPaymentStatus("PAID");
                 orderRepository.save(order);
 
                 paymentRepository.save(new Payment(UUID.randomUUID(), order.getId(), req.provider(), PaymentStatus.PAID,
@@ -219,9 +220,7 @@ public class OrderService {
                                                 "Order not found"));
                 List<OrderItem> items = orderItemRepository.findByIdOrderId(id);
                 List<OrderResponseItem> resItems = items.stream()
-                                .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
-                                                i.getUnitPrice(),
-                                                i.getQuantity()))
+                                .map(this::toOrderResponseItem)
                                 .collect(Collectors.toList());
                 return toOrderResponse(order, resItems);
         }
@@ -231,9 +230,7 @@ public class OrderService {
                 return orders.stream().map(order -> {
                         List<OrderItem> items = orderItemRepository.findByIdOrderId(order.getId());
                         List<OrderResponseItem> resItems = items.stream()
-                                        .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
-                                                        i.getUnitPrice(),
-                                                        i.getQuantity()))
+                                        .map(this::toOrderResponseItem)
                                         .collect(Collectors.toList());
                         return toOrderResponse(order, resItems);
                 }).toList();
@@ -248,9 +245,7 @@ public class OrderService {
                 return orders.stream().map(order -> {
                         List<OrderItem> items = orderItemRepository.findByIdOrderId(order.getId());
                         List<OrderResponseItem> resItems = items.stream()
-                                        .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
-                                                        i.getUnitPrice(),
-                                                        i.getQuantity()))
+                                        .map(this::toOrderResponseItem)
                                         .collect(Collectors.toList());
                         return toOrderResponse(order, resItems);
                 }).toList();
@@ -281,12 +276,25 @@ public class OrderService {
                 return orders.stream().map(order -> {
                         List<OrderItem> items = orderItemRepository.findByIdOrderId(order.getId());
                         List<OrderResponseItem> resItems = items.stream()
-                                        .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
-                                                        i.getUnitPrice(),
-                                                        i.getQuantity()))
+                                        .map(this::toOrderResponseItem)
                                         .collect(Collectors.toList());
                         return toOrderResponse(order, resItems);
                 }).toList();
+        }
+
+        public List<UserOrderCountResponse> countPlacedOrdersByUser() {
+                List<OrderStatus> countableStatuses = Arrays.asList(
+                                OrderStatus.PENDING_PAYMENT,
+                                OrderStatus.PLACED,
+                                OrderStatus.CONFIRMED,
+                                OrderStatus.SHIPPING,
+                                OrderStatus.COMPLETED);
+
+                return orderRepository.countOrdersByUserIdAndStatuses(countableStatuses).stream()
+                                .map(row -> new UserOrderCountResponse(
+                                                (UUID) row[0],
+                                                row[1] == null ? 0L : ((Number) row[1]).longValue()))
+                                .toList();
         }
 
         public OrderResponse updateOrderStatus(UUID orderId, String status) {
@@ -298,6 +306,11 @@ public class OrderService {
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                 "Order not found"));
                 order.setStatus(orderStatus);
+                if (orderStatus == OrderStatus.COMPLETED) {
+                        order.setPaymentStatus("PAID");
+                } else if (!"PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+                        order.setPaymentStatus("UNPAID");
+                }
                 order.setUpdatedAt(Instant.now());
                 orderRepository.save(order);
 
@@ -313,9 +326,7 @@ public class OrderService {
 
                 List<OrderItem> items = orderItemRepository.findByIdOrderId(orderId);
                 List<OrderResponseItem> resItems = items.stream()
-                                .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
-                                                i.getUnitPrice(),
-                                                i.getQuantity()))
+                                .map(this::toOrderResponseItem)
                                 .collect(Collectors.toList());
                 return toOrderResponse(order, resItems);
         }
@@ -339,9 +350,7 @@ public class OrderService {
 
                 List<OrderItem> items = orderItemRepository.findByIdOrderId(orderId);
                 List<OrderResponseItem> resItems = items.stream()
-                                .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
-                                                i.getUnitPrice(),
-                                                i.getQuantity()))
+                                .map(this::toOrderResponseItem)
                                 .collect(Collectors.toList());
                 return toOrderResponse(order, resItems);
         }
@@ -467,10 +476,23 @@ public class OrderService {
                 orderRepository.save(order);
 
                 List<OrderResponseItem> resItems = items.stream()
-                                .map(i -> new OrderResponseItem(i.getId().getProductId(), i.getProductName(),
-                                                i.getUnitPrice(), i.getQuantity()))
+                                .map(this::toOrderResponseItem)
                                 .collect(Collectors.toList());
                 return toOrderResponse(order, resItems);
+        }
+
+        private OrderResponseItem toOrderResponseItem(OrderItem item) {
+                return new OrderResponseItem(
+                                item.getId().getProductId(),
+                                item.getProductName(),
+                                item.getImageUrl(),
+                                item.getSku(),
+                                item.getUnit(),
+                                item.getCategory(),
+                                item.getType(),
+                                item.getShortDescription(),
+                                item.getUnitPrice(),
+                                item.getQuantity());
         }
 
         private OrderResponse toOrderResponse(OrderEntity order, List<OrderResponseItem> items) {
@@ -509,6 +531,7 @@ public class OrderService {
 
                 return new OrderResponse(
                                 order.getId(),
+                                order.getOrderCode(),
                                 order.getUserId(),
                                 order.getBranchId(),
                                 order.getFulfillmentBranchId(),
@@ -523,12 +546,19 @@ public class OrderService {
                                 order.getDiscountAmount(),
                                 order.getTotalAmount(),
                                 order.getPaymentMethod(),
-                                order.getPaymentStatus(),
+                                normalizePaymentStatus(order.getPaymentStatus()),
                                 order.getNote(),
                                 shippingAddress,
                                 shipping,
                                 discount,
                                 items);
+        }
+
+        private String normalizePaymentStatus(String paymentStatus) {
+                if ("PAID".equalsIgnoreCase(paymentStatus)) {
+                        return "PAID";
+                }
+                return "UNPAID";
         }
 
         private UUID resolveBranchId(CheckoutRequest request) {

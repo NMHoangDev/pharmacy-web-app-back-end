@@ -7,5 +7,7 @@ public record PharmacistPreviewDto(
                 String name,
                 String email,
                 String image,
-                String specialty) {
+                String specialty,
+                UUID branchId,
+                String branchName) {
 }

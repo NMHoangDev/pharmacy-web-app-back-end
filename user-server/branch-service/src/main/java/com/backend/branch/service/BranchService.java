@@ -304,6 +304,45 @@ public class BranchService {
         return staff.stream().map(this::toStaffResponse).toList();
     }
 
+    public BranchStaffResponse getPrimaryStaffAssignment(UUID userId, String role) {
+        Objects.requireNonNull(userId, "userId");
+        String normalizedRole = role == null || role.isBlank() ? null : role.trim().toUpperCase();
+        return branchStaffRepository.findByIdUserId(userId).stream()
+                .filter(staff -> normalizedRole == null || normalizedRole.equalsIgnoreCase(staff.getRole()))
+                .filter(BranchStaff::isActive)
+                .findFirst()
+                .map(this::toStaffResponse)
+                .orElse(null);
+    }
+
+    public BranchStaffResponse assignPrimaryStaff(UUID userId, BranchPrimaryStaffRequest req) {
+        Objects.requireNonNull(userId, "userId");
+        Objects.requireNonNull(req, "req");
+        String role = req.role() == null || req.role().isBlank() ? "PHARMACIST" : req.role().trim().toUpperCase();
+
+        List<BranchStaff> existingAssignments = branchStaffRepository.findByIdUserId(userId).stream()
+                .filter(staff -> role.equalsIgnoreCase(staff.getRole()))
+                .toList();
+        if (!existingAssignments.isEmpty()) {
+            branchStaffRepository.deleteAll(existingAssignments);
+        }
+
+        if (req.branchId() == null) {
+            return null;
+        }
+
+        findBranch(req.branchId());
+
+        BranchStaff staff = new BranchStaff();
+        staff.setId(new BranchStaffId(req.branchId(), userId));
+        staff.setRole(role);
+        staff.setSkillsJson(req.skillsJson());
+        staff.setActive(req.active() == null || req.active());
+        staff.setCreatedAt(Instant.now());
+        branchStaffRepository.save(staff);
+        return toStaffResponse(staff);
+    }
+
     public List<BranchAuditResponse> listAudit(UUID branchId) {
         return branchAuditLogRepository.findByBranchIdOrderByCreatedAtDesc(branchId).stream()
                 .map(this::toAuditResponse)

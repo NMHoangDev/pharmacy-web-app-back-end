@@ -65,9 +65,6 @@ public class VNPayService {
         vnpParams.put("vnp_OrderType", request.orderType() == null ? "other" : request.orderType());
         vnpParams.put("vnp_Locale", request.locale() == null ? properties.getLocaleDefault() : request.locale());
         vnpParams.put("vnp_ReturnUrl", properties.getReturnUrl());
-        if (properties.getIpnUrl() != null && !properties.getIpnUrl().isBlank()) {
-            vnpParams.put("vnp_IpnUrl", properties.getIpnUrl());
-        }
         vnpParams.put("vnp_IpAddr", normalizedIp);
         vnpParams.put("vnp_CreateDate", DateTimeUtil.nowVnpay(zoneId));
         vnpParams.put("vnp_ExpireDate", DateTimeUtil.plusMinutesVnpay(zoneId, properties.getExpireMinutes()));

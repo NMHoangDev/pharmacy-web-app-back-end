@@ -7,5 +7,8 @@ RUN JAR_FILE=$(find /app/user-server/catalog-service/target -maxdepth 1 -type f 
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /tmp/app.jar app.jar
 ENTRYPOINT ["java","-jar","app.jar"]

@@ -43,6 +43,27 @@ public class Drug {
     @Column(columnDefinition = "text")
     private String description;
 
+    @Column(name = "dosage_form", columnDefinition = "text")
+    private String dosageForm;
+
+    @Column(columnDefinition = "text")
+    private String packaging;
+
+    @Column(name = "active_ingredient", columnDefinition = "text")
+    private String activeIngredient;
+
+    @Column(columnDefinition = "text")
+    private String indications;
+
+    @Column(name = "usage_dosage", columnDefinition = "text")
+    private String usageDosage;
+
+    @Column(name = "contraindications_warning", columnDefinition = "text")
+    private String contraindicationsWarning;
+
+    @Column(name = "other_information", columnDefinition = "text")
+    private String otherInformation;
+
     @Column(name = "image_url", columnDefinition = "mediumtext")
     private String imageUrl;
 
@@ -133,6 +154,62 @@ public class Drug {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getDosageForm() {
+        return dosageForm;
+    }
+
+    public void setDosageForm(String dosageForm) {
+        this.dosageForm = dosageForm;
+    }
+
+    public String getPackaging() {
+        return packaging;
+    }
+
+    public void setPackaging(String packaging) {
+        this.packaging = packaging;
+    }
+
+    public String getActiveIngredient() {
+        return activeIngredient;
+    }
+
+    public void setActiveIngredient(String activeIngredient) {
+        this.activeIngredient = activeIngredient;
+    }
+
+    public String getIndications() {
+        return indications;
+    }
+
+    public void setIndications(String indications) {
+        this.indications = indications;
+    }
+
+    public String getUsageDosage() {
+        return usageDosage;
+    }
+
+    public void setUsageDosage(String usageDosage) {
+        this.usageDosage = usageDosage;
+    }
+
+    public String getContraindicationsWarning() {
+        return contraindicationsWarning;
+    }
+
+    public void setContraindicationsWarning(String contraindicationsWarning) {
+        this.contraindicationsWarning = contraindicationsWarning;
+    }
+
+    public String getOtherInformation() {
+        return otherInformation;
+    }
+
+    public void setOtherInformation(String otherInformation) {
+        this.otherInformation = otherInformation;
     }
 
     public String getImageUrl() {

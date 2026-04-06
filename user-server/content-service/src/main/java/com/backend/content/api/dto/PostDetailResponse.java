@@ -8,6 +8,7 @@ public record PostDetailResponse(
                 UUID id,
                 String slug,
                 String title,
+                String excerpt,
                 String contentHtml,
                 Object contentJson,
                 List<TocItem> toc,
